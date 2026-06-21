@@ -1,6 +1,6 @@
 # Bolão da Copa ⚽
 
-PWA (foco em celular) para um bolão da Copa do Mundo 2026, para ~10 amigos. Sem login tradicional, resultados lançados manualmente pelo admin. Regras e decisões em [ESPECIFICACAO.md](ESPECIFICACAO.md).
+PWA (foco em celular) para um bolão da Copa do Mundo 2026, para ~10 amigos. Sem login tradicional. Resultados lançados manualmente pelo admin — ou preenchidos automaticamente via API gratuita (ver [Sincronismo automático](#sincronismo-automático-de-resultados-opcional)). Regras e decisões em [ESPECIFICACAO.md](ESPECIFICACAO.md).
 
 **Stack:** React + Vite + TypeScript + Tailwind · Supabase (Postgres) · deploy estático (Vercel/Netlify).
 
@@ -46,6 +46,30 @@ Abra o endereço que aparecer (ex: <http://localhost:5173>) no celular ou no nav
 - Mande o link no grupo. Cada amigo abre, faz **"Sou novo aqui"** e palpita. Dá para **instalar** como app pelo menu do navegador ("Adicionar à tela inicial").
 
 ---
+
+## Sincronismo automático de resultados (opcional)
+
+Dá pra preencher os placares **sozinho**, puxando da API gratuita [football-data.org](https://www.football-data.org) **depois que cada jogo termina** (não é ao vivo). O lançamento manual continua valendo e **tem prioridade**: a API nunca sobrescreve um placar que o admin corrigiu à mão.
+
+Como funciona: uma **Edge Function** no Supabase chama a API, casa o jogo pelo nome dos times e grava o placar na tabela `matches`; o **pg_cron** dispara essa função a cada 30 min. O app continua só lendo do banco.
+
+### Passos
+1. **Token grátis:** crie conta em <https://www.football-data.org/client/register> e copie seu token.
+2. **Migração:** no **SQL Editor**, rode [`supabase/migrations/0002_sync_api.sql`](supabase/migrations/0002_sync_api.sql) (adiciona as colunas de apoio ao sync).
+3. **Deploy da função** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
+   ```bash
+   supabase link --project-ref SEU-REF
+   supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
+   supabase functions deploy sync-resultados
+   ```
+4. **Teste manual** (opcional): `supabase functions invoke sync-resultados` — deve responder um JSON com `atualizados`, `preservadosManuais` e `naoEncontrados`.
+5. **Agende:** edite [`supabase/sync_cron.sql`](supabase/sync_cron.sql) trocando `<SEU-REF>` e `<SUA-ANON-KEY>`, e rode no SQL Editor.
+
+### Bom saber
+- **Mata-mata:** o placar gravado é o do tempo normal/prorrogação (pênaltis **não** entram no placar); "quem avançou" usa o vencedor geral (inclui pênaltis) — igualzinho à regra do bolão.
+- **Confrontos:** a API só preenche o placar de jogos cujos **times já estão definidos** no banco. Continue definindo os confrontos do mata-mata em **Admin → Confrontos**.
+- **Nomes:** o casamento usa um mapa PT↔EN ([`supabase/functions/sync-resultados/teams.ts`](supabase/functions/sync-resultados/teams.ts)). Se um jogo aparecer em `naoEncontrados`, confira se o nome do time no app bate com o do mapa — ou só lance o placar à mão.
+- **Selo:** resultados vindos da API aparecem com 🔄 (no card do jogo e no painel de Resultados).
 
 ## Como o admin opera durante a Copa
 Aba **Admin**:

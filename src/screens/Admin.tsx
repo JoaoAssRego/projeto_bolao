@@ -100,7 +100,13 @@ function ResultadoRow({
     <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-3">
       <div className="mb-1 flex justify-between text-[11px] text-emerald-300/50">
         <span>{match.label}</span>
-        <span>{match.finished ? 'lançado ✓' : 'pendente'}</span>
+        <span>
+          {match.finished
+            ? match.result_source === 'api'
+              ? '🔄 via API (pode corrigir)'
+              : 'lançado ✓'
+            : 'pendente'}
+        </span>
       </div>
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="flex-1 truncate font-medium">{match.home_team}</span>

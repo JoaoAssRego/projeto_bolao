@@ -33,7 +33,9 @@ export default function MatchCard({ match, me, predictions, participants, onSave
             <div className="text-xl font-extrabold text-white">
               {match.home_score} <span className="text-emerald-500">×</span> {match.away_score}
             </div>
-            <div className="text-[10px] uppercase tracking-wide text-emerald-400/70">resultado</div>
+            <div className="text-[10px] uppercase tracking-wide text-emerald-400/70">
+              {match.result_source === 'api' ? '🔄 resultado' : 'resultado'}
+            </div>
           </div>
         ) : (
           <span className="px-2 text-emerald-600">×</span>

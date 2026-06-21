@@ -33,6 +33,9 @@ export interface Match {
   advancer: 'home' | 'away' | null
   finished: boolean
   created_at: string
+  external_id: number | null // id do jogo no football-data.org (sync automático)
+  result_source: 'manual' | 'api' // origem do resultado: lançado à mão ou pela API
+  last_synced_at: string | null
 }
 
 export interface Prediction {

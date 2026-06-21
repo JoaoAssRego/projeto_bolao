@@ -109,9 +109,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const saveResult = useCallback(
     async (matchId: string, home: number, away: number, advancer: 'home' | 'away' | null) => {
+      // Lançamento manual marca result_source='manual': o sync da API não sobrescreve.
       const { error: err } = await supabase
         .from('matches')
-        .update({ home_score: home, away_score: away, advancer, finished: true })
+        .update({ home_score: home, away_score: away, advancer, finished: true, result_source: 'manual' })
         .eq('id', matchId)
       if (err) throw err
       await refresh()
