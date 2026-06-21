@@ -11,7 +11,8 @@ A `ESPECIFICACAO.md` original dizia "resultados lançados manualmente, sem API a
 - **Onde roda:** Edge Function `supabase/functions/sync-resultados` (Deno), agendada por `pg_cron` a cada 30 min (`supabase/sync_cron.sql`). Token fica como secret `FOOTBALL_DATA_TOKEN`, nunca no frontend.
 - **Lançamento manual mantido e com prioridade:** coluna `result_source` em `matches` ('manual'|'api'); o sync nunca sobrescreve um resultado `finished + manual`. `saveResult` no store grava 'manual'.
 - **Mata-mata:** placar = `score.fullTime` (sem pênaltis); advancer = `score.winner` (com pênaltis) — alinhado à regra do bolão.
-- **Casamento de times:** por nome via mapa PT↔EN em `supabase/functions/sync-resultados/teams.ts`; só preenche jogos com times já definidos. Migração: `supabase/migrations/0002_sync_api.sql`.
+- **Importa fixtures (desde 21/jun):** a função NÃO só preenche placar — ela CRIA os jogos que ainda faltam (grupos + mata-mata) com times/horário, vinculando por `external_id`. Só cria jogo não-iniciado (status SCHEDULED/TIMED); jogos já ocorridos ficam de fora. O esqueleto do mata-mata semeado é "encaixado" (claim por fase, ordem cronológica) em vez de duplicado.
+- **Casamento de times:** por nome via mapa PT↔EN em `supabase/functions/sync-resultados/teams.ts` (+ `displayTeam` para nomes em PT). NUNCA inverte orientação mandante/visitante de jogo já com times (corromperia palpites); só ajusta placar conforme a orientação existente (swap interno). Migração: `supabase/migrations/0002_sync_api.sql`.
 
 **Why:** automatiza o trabalho do admin durante a Copa sem abrir mão da correção manual.
 **How to apply:** ao mexer em resultados/scoring, lembre que a fonte pode ser API; preserve a prioridade do manual e a regra de pênaltis.
