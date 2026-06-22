@@ -292,6 +292,7 @@ function ManageLeagueModal({
 
   const league = leagues.find(l => l.id === leagueId)
   if (!league) return null
+  const leagueName = league.name
 
   const isCreator = me?.id === league.creator_id
   const accepted = leagueMembers.filter(m => m.league_id === leagueId && m.status === 'accepted')
@@ -325,13 +326,13 @@ function ManageLeagueModal({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Excluir a liga "${league.name}"? Isso não pode ser desfeito.`)) return
+    if (!window.confirm(`Excluir a liga "${leagueName}"? Isso não pode ser desfeito.`)) return
     await deleteLeague(leagueId)
     onDeleted()
   }
 
   return (
-    <Modal title={league.name} onClose={onClose}>
+    <Modal title={leagueName} onClose={onClose}>
       <div className="flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: '70vh' }}>
         {/* Seção de convite (só criador) */}
         {isCreator && (
