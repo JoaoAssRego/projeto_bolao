@@ -22,8 +22,9 @@ export default function App() {
 }
 
 function Shell() {
-  const { sessionId, me } = useAuth()
-  if (!sessionId) return <Entrada />
+  const { me, loading: authLoading } = useAuth()
+  if (authLoading) return <TelaCarregando />
+  if (!me) return <Entrada />
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col">

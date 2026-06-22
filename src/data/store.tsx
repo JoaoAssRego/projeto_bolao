@@ -4,9 +4,21 @@ import { supabase, supabaseConfigured } from '../lib/supabase'
 import { hashPassword } from '../lib/password'
 import type { League, LeagueMember, Match, Participant, Prediction, Stage } from '../lib/types'
 
-// Colunas públicas de participants — NUNCA inclui password_hash, que fica só no
-// banco e é conferido pontualmente no login (loginWithPassword).
-const PARTICIPANT_COLS = 'id,name,is_admin,created_at,has_password'
+// Colunas públicas de participants — NUNCA inclui password_hash nem auth_user_id.
+const PARTICIPANT_COLS = 'id,name,is_admin,created_at,has_password,has_auth'
+
+// Converte o nome do participante em e-mail interno para o Supabase Auth.
+// Formato: nome normalizado + @bolao.local (domínio fake, sem envio de e-mail).
+function toAuthEmail(name: string): string {
+  const normalized = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/[^a-z0-9]/g, '.') // não-alfanum → ponto
+    .replace(/\.+/g, '.') // pontos duplos → um
+    .replace(/^\.|\.$/g, '') // remove ponto no início/fim
+  return `${normalized}@bolao.local`
+}
 
 interface StoreValue {
   loading: boolean
@@ -107,10 +119,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const createParticipant = useCallback(async (name: string, password: string) => {
     const trimmed = name.trim()
-    const password_hash = await hashPassword(password)
+    const email = toAuthEmail(trimmed)
+
+    // Cria conta no Supabase Auth (e-mail fake, sem envio real)
+    const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password })
+    if (authErr) throw authErr
+    if (!authData.user) throw new Error('Falha ao criar conta de acesso')
+
+    // Insere participante vinculado à conta auth recém-criada
     const { data, error: err } = await supabase
       .from('participants')
-      .insert({ name: trimmed, password_hash })
+      .insert({ name: trimmed, auth_user_id: authData.user.id })
       .select(PARTICIPANT_COLS)
       .single()
     if (err) throw err
@@ -118,31 +137,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data as Participant
   }, [refresh])
 
-  // Confere a senha contra o hash do banco. Se o participante ainda não tem senha
-  // (cadastro antigo), define a informada agora ("primeiro acesso").
+  // Login via Supabase Auth. Para participantes antigos (sem auth_user_id),
+  // verifica o hash legado e cria a conta auth na hora (migração lazy).
   const loginWithPassword = useCallback(async (name: string, password: string) => {
-    const { data, error: err } = await supabase
-      .from('participants')
-      .select('id,name,is_admin,created_at,password_hash')
-      .eq('name', name.trim())
-      .maybeSingle()
-    if (err) throw err
-    if (!data) throw new Error('not-found')
+    const trimmed = name.trim()
+    const email = toAuthEmail(trimmed)
 
-    const hash = await hashPassword(password)
-    if (!data.password_hash) {
-      const { error: upErr } = await supabase
+    // Caminho normal: conta auth já existe
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
+    if (!authErr && authData.user) {
+      const { data: p, error: pErr } = await supabase
         .from('participants')
-        .update({ password_hash: hash })
-        .eq('id', data.id)
-      if (upErr) throw upErr
-    } else if (data.password_hash !== hash) {
+        .select(PARTICIPANT_COLS)
+        .eq('auth_user_id', authData.user.id)
+        .single()
+      if (pErr) throw pErr
+      await refresh()
+      return p as Participant
+    }
+
+    // Migração lazy: participante antigo sem conta auth ainda
+    const { data: existing, error: fetchErr } = await supabase
+      .from('participants')
+      .select('id,name,is_admin,created_at,password_hash,auth_user_id,has_password')
+      .eq('name', trimmed)
+      .maybeSingle()
+    if (fetchErr) throw fetchErr
+    if (!existing) throw new Error('not-found')
+    // Se já tem auth_user_id mas a senha não bateu acima, é senha errada
+    if (existing.auth_user_id) throw new Error('wrong-password')
+
+    // Verifica hash legado
+    const hash = await hashPassword(password)
+    if (existing.password_hash && existing.password_hash !== hash) {
       throw new Error('wrong-password')
     }
 
+    // Cria conta auth e vincula ao participante existente
+    const { error: signUpErr } = await supabase.auth.signUp({ email, password })
+    if (signUpErr) throw signUpErr
+
+    const { error: claimErr } = await supabase.rpc('claim_participant', { p_name: trimmed })
+    if (claimErr) throw claimErr
+
     await refresh()
-    const { password_hash: _omit, ...rest } = data
-    return { ...rest, has_password: true } as Participant
+    const { password_hash: _ph, auth_user_id: _auid, ...rest } = existing
+    return { ...rest, has_password: true, has_auth: true } as Participant
   }, [refresh])
 
   const savePrediction = useCallback(

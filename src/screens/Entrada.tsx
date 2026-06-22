@@ -143,7 +143,7 @@ export default function Entrada() {
             Entrando como <span className="font-semibold text-[var(--t1)]">{selected.name}</span>
           </p>
           <label className="text-sm text-[var(--t2)]">
-            {selected.has_password ? 'Digite sua senha:' : 'Primeiro acesso — crie sua senha:'}
+            {selected.has_password || selected.has_auth ? 'Digite sua senha:' : 'Primeiro acesso — crie sua senha:'}
           </label>
           <input
             autoFocus

@@ -18,7 +18,8 @@ export interface Participant {
   name: string
   is_admin: boolean
   created_at: string
-  has_password: boolean // true quando o participante já definiu uma senha
+  has_password: boolean // true quando o participante já definiu uma senha (legado)
+  has_auth: boolean // true quando já tem conta Supabase Auth vinculada
 }
 
 export interface Match {

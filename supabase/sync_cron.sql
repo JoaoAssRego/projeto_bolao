@@ -28,7 +28,7 @@ select cron.schedule(
     url     := 'https://a371aa8579b249cabc59a4292f3c1810.supabase.co/functions/v1/sync-resultados',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer <SUA-ANON-KEY>'
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyeHpidnZuanV1bnV6ZnZtcWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNjM0MzcsImV4cCI6MjA5NzYzOTQzN30.UMioacap_1GUWnmvCug2CJN0N-kym3HP7iesVeplFRM'
     ),
     timeout_milliseconds := 20000
   );

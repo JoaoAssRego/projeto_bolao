@@ -1,49 +1,58 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { clearSession, getSession, setSession } from '../lib/session'
-import { useStore } from './store'
+import { supabase } from '../lib/supabase'
 import type { Participant } from '../lib/types'
 
+const PARTICIPANT_COLS = 'id,name,is_admin,created_at,has_password,has_auth'
+
 interface AuthValue {
-  me: Participant | null // registro completo (inclui is_admin), quando carregado
-  sessionId: string | null // id salvo no aparelho (pode estar antes de carregar)
-  signIn: (participant: { id: string; name: string }) => void
-  signOut: () => void
+  me: Participant | null
+  sessionId: string | null // mantido para compatibilidade com App.tsx
+  loading: boolean
+  signIn: (p: Participant) => void // atualização explícita (migração lazy)
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
 
+async function fetchMe(authUserId: string): Promise<Participant | null> {
+  const { data } = await supabase
+    .from('participants')
+    .select(PARTICIPANT_COLS)
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
+  return (data as Participant) ?? null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { participants } = useStore()
-  const [sessionId, setSessionId] = useState<string | null>(() => getSession()?.id ?? null)
+  const [me, setMe] = useState<Participant | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const me = useMemo(
-    () => participants.find((p) => p.id === sessionId) ?? null,
-    [participants, sessionId],
-  )
-
-  // Se a sessão aponta para alguém que não existe mais (ex: removido), limpa.
   useEffect(() => {
-    if (sessionId && participants.length > 0 && !me) {
-      clearSession()
-      setSessionId(null)
-    }
-  }, [sessionId, participants, me])
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const participant = await fetchMe(session.user.id)
+        setMe(participant)
+      } else {
+        setMe(null)
+      }
+      setLoading(false)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const value = useMemo<AuthValue>(
     () => ({
       me,
-      sessionId,
-      signIn: (p) => {
-        setSession({ id: p.id, name: p.name })
-        setSessionId(p.id)
-      },
-      signOut: () => {
-        clearSession()
-        setSessionId(null)
+      sessionId: me?.id ?? null,
+      loading,
+      signIn: (p) => setMe(p),
+      signOut: async () => {
+        await supabase.auth.signOut()
+        setMe(null)
       },
     }),
-    [me, sessionId],
+    [me, loading],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
