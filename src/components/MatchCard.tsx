@@ -12,17 +12,19 @@ interface Props {
   predictions: Prediction[]
   participants: Participant[]
   onSave: (home: number, away: number) => Promise<void>
+  hasPrediction?: boolean
 }
 
-export default function MatchCard({ match, me, predictions, participants, onSave }: Props) {
+export default function MatchCard({ match, me, predictions, participants, onSave, hasPrediction }: Props) {
   const locked = isLocked(match)
   const finished = hasResult(match)
   const teamsDefined = Boolean(match.home_team && match.away_team)
   const myPred = predictions.find((p) => p.participant_id === me.id)
   const groupLabel = match.label ?? STAGE_LABEL[match.stage]
+  const warnBorder = !locked && !finished && teamsDefined && !hasPrediction
 
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+    <div className={`rounded-2xl border bg-[var(--surface)] overflow-hidden transition-colors ${warnBorder ? 'border-2 border-yellow-400' : 'border border-[var(--border)]'}`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
         <span className="bg-[var(--raised)] text-[var(--t2)] text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
