@@ -44,12 +44,12 @@ function Shell() {
 function Header() {
   const { me, signOut } = useAuth()
   return (
-    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-emerald-900/60 bg-[#04140a]/90 px-4 py-3 backdrop-blur">
+    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.92)] px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-2">
         <img src="/favicon.svg" alt="" className="h-7 w-7" />
-        <span className="font-bold tracking-tight">Bolão da Copa</span>
+        <span className="font-bold tracking-tight text-[var(--t1)]">Bolão da Copa</span>
       </div>
-      <button onClick={signOut} className="text-xs text-emerald-300/70 active:text-emerald-200">
+      <button onClick={signOut} className="text-xs text-[var(--t3)] transition-colors active:text-[var(--t2)]">
         {me?.name} · sair
       </button>
     </header>
@@ -65,7 +65,7 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️' })
 
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-emerald-900/60 bg-[#04140a]/95 backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.96)] backdrop-blur">
       {items.map((it) => (
         <NavLink
           key={it.to}
@@ -73,7 +73,7 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
           end={it.to === '/'}
           className={({ isActive }) =>
             `flex flex-1 flex-col items-center gap-0.5 py-3 text-xs transition-colors ${
-              isActive ? 'text-canarinho-yellow' : 'text-emerald-200/60'
+              isActive ? 'text-[var(--accent)]' : 'text-[var(--t3)]'
             }`
           }
         >
@@ -87,7 +87,7 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
 
 function TelaCarregando() {
   return (
-    <div className="flex min-h-screen items-center justify-center text-emerald-300/70">
+    <div className="flex min-h-screen items-center justify-center text-[var(--t3)]">
       <div className="animate-pulse">Carregando…</div>
     </div>
   )
@@ -96,11 +96,11 @@ function TelaCarregando() {
 function ConfigFaltando() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-6 text-sm">
-      <h1 className="text-xl font-bold text-canarinho-yellow">Falta configurar o Supabase</h1>
-      <p className="text-emerald-100/80">
-        Copie o arquivo <code className="rounded bg-emerald-950 px-1">.env.example</code> para{' '}
-        <code className="rounded bg-emerald-950 px-1">.env</code> e preencha as duas variáveis com os dados do seu
-        projeto Supabase (Project Settings → API). Depois reinicie o <code className="rounded bg-emerald-950 px-1">npm run dev</code>.
+      <h1 className="text-xl font-bold text-[var(--accent)]">Falta configurar o Supabase</h1>
+      <p className="text-[var(--t2)]">
+        Copie o arquivo <code className="rounded bg-[var(--raised)] px-1">.env.example</code> para{' '}
+        <code className="rounded bg-[var(--raised)] px-1">.env</code> e preencha as duas variáveis com os dados do seu
+        projeto Supabase (Project Settings → API). Depois reinicie o <code className="rounded bg-[var(--raised)] px-1">npm run dev</code>.
       </p>
     </div>
   )

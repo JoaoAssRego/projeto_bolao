@@ -21,6 +21,10 @@ const dayKeyFmt = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 })
 
+export function formatDate(iso: string): string {
+  return dateFmt.format(new Date(iso))
+}
+
 export function formatKickoff(iso: string): string {
   const d = new Date(iso)
   return `${dateFmt.format(d)} · ${timeFmt.format(d)}`

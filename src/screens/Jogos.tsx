@@ -39,29 +39,29 @@ export default function Jogos() {
   return (
     <div className="flex flex-col gap-3">
       {pendentesHoje.length > 0 && (
-        <div className="rounded-xl border border-canarinho-yellow/40 bg-canarinho-yellow/10 px-4 py-3 text-sm text-canarinho-yellow">
+        <div className="rounded-xl border border-[var(--accent-ring)] bg-[var(--accent-muted)] px-4 py-3 text-sm text-[var(--accent)]">
           ⚠️ Você ainda não palpitou em {pendentesHoje.length}{' '}
           {pendentesHoje.length === 1 ? 'jogo de hoje' : 'jogos de hoje'}. Corre antes de travar!
         </div>
       )}
 
-      <div className="flex rounded-xl bg-emerald-950/60 p-1 text-sm font-semibold">
+      <div className="flex rounded-xl bg-[var(--surface)] p-1 text-sm font-semibold">
         <button
           onClick={() => setTab('abertos')}
-          className={`flex-1 rounded-lg py-2 ${tab === 'abertos' ? 'bg-emerald-800 text-white' : 'text-emerald-300/60'}`}
+          className={`flex-1 rounded-lg py-2 transition-colors ${tab === 'abertos' ? 'bg-[var(--accent)] text-[var(--accent-fg)]' : 'text-[var(--t3)]'}`}
         >
           Abertos ({abertos.length})
         </button>
         <button
           onClick={() => setTab('encerrados')}
-          className={`flex-1 rounded-lg py-2 ${tab === 'encerrados' ? 'bg-emerald-800 text-white' : 'text-emerald-300/60'}`}
+          className={`flex-1 rounded-lg py-2 transition-colors ${tab === 'encerrados' ? 'bg-[var(--accent)] text-[var(--accent-fg)]' : 'text-[var(--t3)]'}`}
         >
           Travados ({encerrados.length})
         </button>
       </div>
 
       {lista.length === 0 ? (
-        <p className="py-10 text-center text-sm text-emerald-300/50">
+        <p className="py-10 text-center text-sm text-[var(--t3)]">
           {tab === 'abertos' ? 'Nenhum jogo aberto para palpitar agora.' : 'Nenhum jogo travado ainda.'}
         </p>
       ) : (

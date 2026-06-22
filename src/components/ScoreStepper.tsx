@@ -14,7 +14,7 @@ export default function ScoreStepper({ value, onChange, disabled, ariaLabel }: P
         type="button"
         disabled={disabled || n <= 0}
         onClick={() => onChange(Math.max(0, n - 1))}
-        className="h-9 w-9 rounded-lg bg-emerald-900/70 text-lg font-bold text-emerald-100 disabled:opacity-30 active:bg-emerald-800"
+        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--raised)] text-lg font-bold text-[var(--t1)] transition-colors disabled:opacity-30 active:border-[var(--accent)] active:text-[var(--accent)]"
         aria-label="diminuir"
       >
         −
@@ -26,13 +26,13 @@ export default function ScoreStepper({ value, onChange, disabled, ariaLabel }: P
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(Math.max(0, Math.min(99, Number(e.target.value) || 0)))}
-        className="h-9 w-10 rounded-lg bg-emerald-950 text-center text-lg font-bold text-white outline-none disabled:bg-transparent disabled:text-emerald-100"
+        className="h-9 w-10 rounded-lg bg-[var(--bg)] text-center text-lg font-bold text-[var(--t1)] outline-none disabled:bg-transparent disabled:text-[var(--t2)]"
       />
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(Math.min(99, n + 1))}
-        className="h-9 w-9 rounded-lg bg-emerald-900/70 text-lg font-bold text-emerald-100 disabled:opacity-30 active:bg-emerald-800"
+        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--raised)] text-lg font-bold text-[var(--t1)] transition-colors disabled:opacity-30 active:border-[var(--accent)] active:text-[var(--accent)]"
         aria-label="aumentar"
       >
         +
