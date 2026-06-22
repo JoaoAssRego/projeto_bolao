@@ -128,30 +128,25 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Teams + drums in one row */}
-      <div className="flex items-center gap-1">
-        {/* Home: [flag / name] [drum] */}
-        <div className="flex flex-1 min-w-0 items-center gap-2">
-          <div className="flex flex-col items-start min-w-0">
-            <span className="text-[22px] leading-none">{homeFlag ?? '🏴'}</span>
-            <span className="text-[11px] font-semibold text-[var(--t1)] truncate max-w-full mt-0.5">
-              {match.home_team}
-            </span>
-          </div>
-          <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
+      {/* Three-column: [home team] [score] [away team] */}
+      <div className="flex items-center gap-3">
+        {/* Home team */}
+        <div className="flex-1 min-w-0">
+          <span className="text-[24px] leading-none">{homeFlag ?? '🏴'}</span>
+          <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.home_team}</p>
         </div>
 
-        <span className="text-[var(--t3)] text-base flex-shrink-0 px-0.5">×</span>
-
-        {/* Away: [drum] [flag / name] */}
-        <div className="flex flex-1 min-w-0 items-center justify-end gap-2">
+        {/* Score drums — fixed center */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
+          <span className="text-[var(--t3)] text-lg">×</span>
           <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" />
-          <div className="flex flex-col items-end min-w-0">
-            <span className="text-[22px] leading-none">{awayFlag ?? '🏴'}</span>
-            <span className="text-[11px] font-semibold text-[var(--t1)] truncate max-w-full mt-0.5 text-right">
-              {match.away_team}
-            </span>
-          </div>
+        </div>
+
+        {/* Away team */}
+        <div className="flex-1 min-w-0 text-right">
+          <span className="text-[24px] leading-none">{awayFlag ?? '🏴'}</span>
+          <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.away_team}</p>
         </div>
       </div>
 
