@@ -105,8 +105,8 @@ function TeamLabel({ name, align }: { name: string | null; align: 'left' | 'righ
 
 /* Edit mode: flag + name + drum on each side, inline */
 function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction; onSave: (h: number, a: number) => Promise<void> }) {
-  const [home, setHome] = useState<number | ''>(initial ? initial.home_score : '')
-  const [away, setAway] = useState<number | ''>(initial ? initial.away_score : '')
+  const [home, setHome] = useState<number | ''>(initial ? initial.home_score : 0)
+  const [away, setAway] = useState<number | ''>(initial ? initial.away_score : 0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -130,24 +130,28 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
     <div className="flex flex-col gap-3">
       {/* Teams + drums in one row */}
       <div className="flex items-center gap-1">
-        {/* Home: [flag][name][drum] */}
-        <div className="flex flex-1 min-w-0 items-center gap-1">
-          <span className="text-[20px] leading-none flex-shrink-0">{homeFlag ?? '🏴'}</span>
-          <span className="text-[11px] font-semibold text-[var(--t1)] truncate flex-1 min-w-0">
-            {match.home_team}
-          </span>
+        {/* Home: [flag / name] [drum] */}
+        <div className="flex flex-1 min-w-0 items-center gap-2">
+          <div className="flex flex-col items-start min-w-0">
+            <span className="text-[22px] leading-none">{homeFlag ?? '🏴'}</span>
+            <span className="text-[11px] font-semibold text-[var(--t1)] truncate max-w-full mt-0.5">
+              {match.home_team}
+            </span>
+          </div>
           <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
         </div>
 
         <span className="text-[var(--t3)] text-base flex-shrink-0 px-0.5">×</span>
 
-        {/* Away: [drum][name][flag] */}
-        <div className="flex flex-1 min-w-0 items-center gap-1">
+        {/* Away: [drum] [flag / name] */}
+        <div className="flex flex-1 min-w-0 items-center justify-end gap-2">
           <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" />
-          <span className="text-[11px] font-semibold text-[var(--t1)] truncate flex-1 min-w-0 text-right">
-            {match.away_team}
-          </span>
-          <span className="text-[20px] leading-none flex-shrink-0">{awayFlag ?? '🏴'}</span>
+          <div className="flex flex-col items-end min-w-0">
+            <span className="text-[22px] leading-none">{awayFlag ?? '🏴'}</span>
+            <span className="text-[11px] font-semibold text-[var(--t1)] truncate max-w-full mt-0.5 text-right">
+              {match.away_team}
+            </span>
+          </div>
         </div>
       </div>
 
