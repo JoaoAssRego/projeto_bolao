@@ -1,7 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
+import { hashPassword } from '../lib/password'
 import type { Match, Participant, Prediction, Stage } from '../lib/types'
+
+// Colunas públicas de participants — NUNCA inclui password_hash, que fica só no
+// banco e é conferido pontualmente no login (loginWithPassword).
+const PARTICIPANT_COLS = 'id,name,is_admin,created_at,has_password'
 
 interface StoreValue {
   loading: boolean
@@ -11,7 +16,8 @@ interface StoreValue {
   matches: Match[]
   predictions: Prediction[]
   refresh: () => Promise<void>
-  createParticipant: (name: string) => Promise<Participant>
+  createParticipant: (name: string, password: string) => Promise<Participant>
+  loginWithPassword: (name: string, password: string) => Promise<Participant>
   savePrediction: (participantId: string, matchId: string, home: number, away: number) => Promise<void>
   saveResult: (matchId: string, home: number, away: number, advancer: 'home' | 'away' | null) => Promise<void>
   saveMatchTeams: (matchId: string, home: string, away: string) => Promise<void>
@@ -45,7 +51,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     try {
       const [p, m, pr] = await Promise.all([
-        supabase.from('participants').select('*').order('created_at'),
+        supabase.from('participants').select(PARTICIPANT_COLS).order('created_at'),
         supabase.from('matches').select('*'),
         supabase.from('predictions').select('*'),
       ])
@@ -81,16 +87,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh])
 
-  const createParticipant = useCallback(async (name: string) => {
+  const createParticipant = useCallback(async (name: string, password: string) => {
     const trimmed = name.trim()
+    const password_hash = await hashPassword(password)
     const { data, error: err } = await supabase
       .from('participants')
-      .insert({ name: trimmed })
-      .select()
+      .insert({ name: trimmed, password_hash })
+      .select(PARTICIPANT_COLS)
       .single()
     if (err) throw err
     await refresh()
     return data as Participant
+  }, [refresh])
+
+  // Confere a senha contra o hash do banco. Se o participante ainda não tem senha
+  // (cadastro antigo), define a informada agora ("primeiro acesso").
+  const loginWithPassword = useCallback(async (name: string, password: string) => {
+    const { data, error: err } = await supabase
+      .from('participants')
+      .select('id,name,is_admin,created_at,password_hash')
+      .eq('name', name.trim())
+      .maybeSingle()
+    if (err) throw err
+    if (!data) throw new Error('not-found')
+
+    const hash = await hashPassword(password)
+    if (!data.password_hash) {
+      const { error: upErr } = await supabase
+        .from('participants')
+        .update({ password_hash: hash })
+        .eq('id', data.id)
+      if (upErr) throw upErr
+    } else if (data.password_hash !== hash) {
+      throw new Error('wrong-password')
+    }
+
+    await refresh()
+    const { password_hash: _omit, ...rest } = data
+    return { ...rest, has_password: true } as Participant
   }, [refresh])
 
   const savePrediction = useCallback(
@@ -170,13 +204,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       predictions,
       refresh,
       createParticipant,
+      loginWithPassword,
       savePrediction,
       saveResult,
       saveMatchTeams,
       saveKickoff,
       createMatch,
     }),
-    [loading, error, participants, matches, predictions, refresh, createParticipant, savePrediction, saveResult, saveMatchTeams, saveKickoff, createMatch],
+    [loading, error, participants, matches, predictions, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveMatchTeams, saveKickoff, createMatch],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

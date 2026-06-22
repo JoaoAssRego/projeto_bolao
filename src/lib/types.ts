@@ -18,6 +18,7 @@ export interface Participant {
   name: string
   is_admin: boolean
   created_at: string
+  has_password: boolean // true quando o participante já definiu uma senha
 }
 
 export interface Match {

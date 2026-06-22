@@ -1,13 +1,14 @@
 // ============================================================================
-// Edge Function: sync-resultados
+// Edge Function: sync-resultados (ARQUIVO ÚNICO — fácil de colar no painel)
 // Importa os jogos da Copa do Mundo (football-data.org) e mantém a tabela
 // `matches` em dia: CRIA os jogos que ainda vão acontecer (grupos + mata-mata),
 // atualiza times/horário e preenche o PLACAR dos jogos encerrados.
 // Pensada para rodar via pg_cron (ver supabase/sync_cron.sql).
 //
-// Deploy:   supabase functions deploy sync-resultados
-// Segredos: supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
-//           (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já vêm do ambiente)
+// Deploy (terminal):   supabase functions deploy sync-resultados
+// Deploy (painel):     Edge Functions > sync-resultados > Edit > colar > Deploy
+// Segredos:            supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
+//                      (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já vêm do ambiente)
 //
 // Princípios:
 //  - Só CRIA jogo que ainda NÃO começou (status SCHEDULED/TIMED). Jogos já
@@ -17,17 +18,134 @@
 //    para o placar). "Quem avançou" = score.winner (considera pênaltis).
 //  - NUNCA sobrescreve resultado lançado/corrigido à mão (finished + manual).
 //  - NUNCA inverte a ordem mandante/visitante de um jogo que já tem times
-//    definidos (isso corromperia palpites já feitos) — só ajusta o placar
-//    conforme a orientação existente.
+//    definidos (isso corromperia palpites já feitos).
 // ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { canonicalTeam, displayTeam } from './teams.ts'
 
+// ----------------------------------------------------------------------------
+// Mapa de seleções: casa o nome que o admin/usuário vê (PT) com o que a API
+// devolve (EN). Primeira forma de cada linha é a canônica.
+// ----------------------------------------------------------------------------
+const TEAMS: string[][] = [
+  ['brazil', 'brasil'],
+  ['argentina'],
+  ['france', 'franca', 'frança'],
+  ['england', 'inglaterra'],
+  ['spain', 'espanha'],
+  ['portugal'],
+  ['germany', 'alemanha'],
+  ['netherlands', 'holanda', 'paises baixos', 'países baixos'],
+  ['belgium', 'belgica', 'bélgica'],
+  ['croatia', 'croacia', 'croácia'],
+  ['italy', 'italia', 'itália'],
+  ['uruguay', 'uruguai'],
+  ['colombia', 'colômbia'],
+  ['mexico', 'méxico'],
+  ['united states', 'usa', 'estados unidos', 'eua'],
+  ['canada', 'canadá'],
+  ['japan', 'japao', 'japão'],
+  ['south korea', 'coreia do sul', 'coréia do sul', 'korea republic'],
+  ['australia'],
+  ['morocco', 'marrocos'],
+  ['senegal'],
+  ['ghana'],
+  ['nigeria', 'nigéria'],
+  ['cameroon', 'camaroes', 'camarões'],
+  ['ivory coast', 'cote divoire', "cote d'ivoire", 'costa do marfim'],
+  ['egypt', 'egito'],
+  ['tunisia', 'tunísia'],
+  ['algeria', 'argelia', 'argélia'],
+  ['switzerland', 'suica', 'suíça'],
+  ['denmark', 'dinamarca'],
+  ['poland', 'polonia', 'polônia'],
+  ['serbia', 'servia', 'sérvia'],
+  ['austria', 'áustria'],
+  ['ecuador', 'equador'],
+  ['peru'],
+  ['chile'],
+  ['paraguay', 'paraguai'],
+  ['saudi arabia', 'arabia saudita', 'arábia saudita'],
+  ['iran', 'ira', 'irã'],
+  ['qatar', 'catar'],
+  ['wales', 'pais de gales', 'país de gales'],
+  ['scotland', 'escocia', 'escócia'],
+  ['norway', 'noruega'],
+  ['sweden', 'suecia', 'suécia'],
+  ['turkey', 'turkiye', 'turquia'],
+  ['ukraine', 'ucrania', 'ucrânia'],
+  ['costa rica'],
+  ['panama', 'panamá'],
+  ['honduras'],
+  ['jamaica'],
+  ['new zealand', 'nova zelandia', 'nova zelândia'],
+  ['greece', 'grecia', 'grécia'],
+  ['czechia', 'czech republic', 'republica tcheca', 'república tcheca', 'tchequia', 'tchéquia'],
+  ['hungary', 'hungria'],
+  ['slovenia', 'eslovenia', 'eslovênia'],
+  ['slovakia', 'eslovaquia', 'eslováquia'],
+  ['romania', 'romenia', 'romênia'],
+  ['russia', 'rússia'],
+  ['bolivia', 'bolívia'],
+  ['venezuela'],
+  ['south africa', 'africa do sul', 'áfrica do sul'],
+  ['cape verde', 'cabo verde'],
+  ['jordan', 'jordania', 'jordânia'],
+  ['uzbekistan', 'uzbequistao', 'uzbequistão'],
+  ['curacao', 'curaçao'],
+  ['haiti'],
+]
+
+const PT_DISPLAY: Record<string, string> = {
+  brazil: 'Brasil', argentina: 'Argentina', france: 'França', england: 'Inglaterra',
+  spain: 'Espanha', portugal: 'Portugal', germany: 'Alemanha', netherlands: 'Holanda',
+  belgium: 'Bélgica', croatia: 'Croácia', italy: 'Itália', uruguay: 'Uruguai',
+  colombia: 'Colômbia', mexico: 'México', 'united states': 'Estados Unidos', canada: 'Canadá',
+  japan: 'Japão', 'south korea': 'Coreia do Sul', australia: 'Austrália', morocco: 'Marrocos',
+  senegal: 'Senegal', ghana: 'Gana', nigeria: 'Nigéria', cameroon: 'Camarões',
+  'ivory coast': 'Costa do Marfim', egypt: 'Egito', tunisia: 'Tunísia', algeria: 'Argélia',
+  switzerland: 'Suíça', denmark: 'Dinamarca', poland: 'Polônia', serbia: 'Sérvia',
+  austria: 'Áustria', ecuador: 'Equador', peru: 'Peru', chile: 'Chile', paraguay: 'Paraguai',
+  'saudi arabia': 'Arábia Saudita', iran: 'Irã', qatar: 'Catar', wales: 'País de Gales',
+  scotland: 'Escócia', norway: 'Noruega', sweden: 'Suécia', turkey: 'Turquia', ukraine: 'Ucrânia',
+  'costa rica': 'Costa Rica', panama: 'Panamá', honduras: 'Honduras', jamaica: 'Jamaica',
+  'new zealand': 'Nova Zelândia', greece: 'Grécia', czechia: 'República Tcheca', hungary: 'Hungria',
+  slovenia: 'Eslovênia', slovakia: 'Eslováquia', romania: 'Romênia', russia: 'Rússia',
+  bolivia: 'Bolívia', venezuela: 'Venezuela', 'south africa': 'África do Sul', 'cape verde': 'Cabo Verde',
+  jordan: 'Jordânia', uzbekistan: 'Uzbequistão', curacao: 'Curaçao', haiti: 'Haiti',
+}
+
+function normalizeTeam(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const CANONICAL = new Map<string, string>()
+for (const group of TEAMS) for (const v of group) CANONICAL.set(normalizeTeam(v), group[0])
+
+function canonicalTeam(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const norm = normalizeTeam(raw)
+  return norm ? (CANONICAL.get(norm) ?? norm) : null
+}
+
+function displayTeam(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const c = canonicalTeam(raw)
+  return (c && PT_DISPLAY[c]) ?? raw
+}
+
+// ----------------------------------------------------------------------------
+// Sync
+// ----------------------------------------------------------------------------
 const COMPETITION = 'WC'
 const API_URL = `https://api.football-data.org/v4/competitions/${COMPETITION}/matches`
 
-// football-data.org stage -> nossa fase.
 const STAGE_MAP: Record<string, string> = {
   GROUP_STAGE: 'group',
   LAST_32: 'r32',
@@ -82,7 +200,6 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
-// "GROUP_A" / "GROUP_C" -> "Grupo A". Senão, rótulo padrão da fase.
 function groupLabel(g: string | null): string | null {
   if (!g) return null
   const m = /GROUP[_\s-]?([A-Z])/i.exec(g)
@@ -98,7 +215,6 @@ Deno.serve(async () => {
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
-  // 1) Jogos da Copa na API.
   let api: { matches: ApiMatch[] }
   try {
     const res = await fetch(API_URL, { headers: { 'X-Auth-Token': token } })
@@ -108,20 +224,15 @@ Deno.serve(async () => {
     return json({ error: 'Falha ao chamar a API.', detail: String(e) }, 502)
   }
 
-  // 2) Jogos do nosso banco.
   const { data: dbMatches, error: dbErr } = await supabase
     .from('matches')
     .select('id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished')
   if (dbErr) return json({ error: 'Falha ao ler matches.', detail: dbErr.message }, 500)
   const db = (dbMatches ?? []) as DbMatch[]
 
-  // Índices de apoio.
   const byExternal = new Map<number, DbMatch>()
   for (const d of db) if (d.external_id != null) byExternal.set(d.external_id, d)
 
-  // Fila, por fase, de jogos "vazios" (sem external_id e sem times) — é o
-  // esqueleto do mata-mata semeado. Vamos "encaixar" os jogos da API neles em
-  // vez de criar duplicados.
   const skeleton = new Map<string, DbMatch[]>()
   for (const d of db) {
     if (d.external_id == null && !d.home_team && !d.away_team) {
@@ -132,14 +243,19 @@ Deno.serve(async () => {
   }
   for (const arr of skeleton.values()) arr.sort((a, b) => a.ordering - b.ordering)
 
-  // Próximo `ordering` livre por fase (para jogos criados do zero).
   const nextOrdering = new Map<string, number>()
   for (const d of db) nextOrdering.set(d.stage, Math.max(nextOrdering.get(d.stage) ?? 0, d.ordering))
 
-  const claimed = new Set<string>() // ids do esqueleto já encaixados nesta execução
-  const result = { criados: 0, vinculados: 0, placaresAtualizados: 0, preservadosManuais: 0, ignoradosPassados: 0, faseDesconhecida: [] as string[] }
+  const claimed = new Set<string>()
+  const result = {
+    criados: 0,
+    vinculados: 0,
+    placaresAtualizados: 0,
+    preservadosManuais: 0,
+    ignoradosPassados: 0,
+    faseDesconhecida: [] as string[],
+  }
 
-  // Processa em ordem cronológica (ajuda a encaixar o esqueleto por data).
   const sorted = [...(api.matches ?? [])].sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
 
   for (const m of sorted) {
@@ -153,11 +269,9 @@ Deno.serve(async () => {
     const awayC = canonicalTeam(m.awayTeam?.name ?? m.awayTeam?.shortName)
     const hasTeams = Boolean(homeC && awayC)
 
-    // ---- Acha (ou cria) o jogo correspondente no banco ----
     let target = byExternal.get(m.id)
 
     if (!target && hasTeams) {
-      // por par de times (qualquer ordem), entre jogos ainda não vinculados da mesma fase
       target = db.find((d) => {
         if (d.external_id != null || d.stage !== stage) return false
         const h = canonicalTeam(d.home_team)
@@ -168,8 +282,6 @@ Deno.serve(async () => {
     }
 
     if (!target) {
-      // encaixa no próximo slot livre do esqueleto da fase (mata-mata semeado),
-      // com ou sem times definidos — evita duplicar o jogo quando o chaveamento sai.
       const queue = skeleton.get(stage)
       if (queue) {
         const slot = queue.find((d) => !claimed.has(d.id))
@@ -180,17 +292,13 @@ Deno.serve(async () => {
       }
     }
 
-    // ---- Decide times/orientação ----
     const teamsAlreadySet = Boolean(target?.home_team && target?.away_team)
-    // Só define/atualiza nomes quando ainda não há times (não mexe em jogo já apostável).
     const setTeams = hasTeams && !teamsAlreadySet
-    // swap = nossos times estão invertidos em relação à API (só relevante se já havia times)
     let swapped = false
     if (target && teamsAlreadySet && hasTeams) {
       swapped = canonicalTeam(target.home_team) === awayC && homeC !== awayC
     }
 
-    // ---- CRIA se não existe e ainda não começou ----
     if (!target) {
       const naoComecou = m.status === 'SCHEDULED' || m.status === 'TIMED'
       if (!naoComecou) {
@@ -215,15 +323,17 @@ Deno.serve(async () => {
       continue
     }
 
-    // ---- ATUALIZA jogo existente (vincula external_id, ajusta data/times, placar) ----
-    const patch: Record<string, unknown> = { external_id: m.id, kickoff: m.utcDate, last_synced_at: new Date().toISOString() }
+    const patch: Record<string, unknown> = {
+      external_id: m.id,
+      kickoff: m.utcDate,
+      last_synced_at: new Date().toISOString(),
+    }
     if (setTeams) {
       patch.home_team = displayTeam(m.homeTeam?.name ?? m.homeTeam?.shortName)
       patch.away_team = displayTeam(m.awayTeam?.name ?? m.awayTeam?.shortName)
     }
     if (target.external_id == null) result.vinculados++
 
-    // Placar (se encerrado e não foi fechado à mão).
     const finishedApi = m.status === 'FINISHED' && m.score.fullTime.home != null && m.score.fullTime.away != null
     if (finishedApi) {
       if (target.finished && target.result_source === 'manual') {

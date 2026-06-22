@@ -13,6 +13,14 @@ create table if not exists participants (
   created_at  timestamptz not null default now()
 );
 
+-- Login com senha (sem email). Ver migração 0003_login_senha.sql.
+-- password_hash: SHA-256 (com sal fixo) calculado no app; NULL = sem senha ainda.
+alter table participants add column if not exists password_hash text;
+-- has_password: o app lê isto (não o hash) para saber se já há senha definida.
+alter table participants
+  add column if not exists has_password boolean
+  generated always as (password_hash is not null) stored;
+
 create table if not exists matches (
   id          uuid primary key default gen_random_uuid(),
   stage       text not null check (stage in ('group','r32','r16','qf','sf','third','final')),
@@ -67,6 +75,9 @@ create policy "leitura predictions" on predictions for select using (true);
 -- Escrita liberada (gating de admin/dono é feito no app)
 drop policy if exists "insere participants" on participants;
 create policy "insere participants" on participants for insert with check (true);
+-- update liberado: usado para definir a senha (cadastro e primeiro acesso).
+drop policy if exists "atualiza participants" on participants;
+create policy "atualiza participants" on participants for update using (true) with check (true);
 
 drop policy if exists "insere predictions" on predictions;
 create policy "insere predictions" on predictions for insert with check (true);

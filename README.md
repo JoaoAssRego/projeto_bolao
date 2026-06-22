@@ -35,15 +35,17 @@ npm run dev
 ```
 Abra o endereço que aparecer (ex: <http://localhost:5173>) no celular ou no navegador.
 
+> **Banco já existente?** Se você criou o projeto antes do login por senha, rode também [`supabase/migrations/0003_login_senha.sql`](supabase/migrations/0003_login_senha.sql) no SQL Editor (adiciona a coluna de senha). Setups novos já vêm com tudo pelo `schema.sql`.
+
 ### 5. Virar admin (uma vez só)
-1. Abra o app, escolha **"Sou novo aqui"** e cadastre o SEU nome.
+1. Abra o app, escolha **"Sou novo aqui"** e cadastre o SEU nome **e uma senha**.
 2. No Supabase → **Table Editor → participants**, ache seu registro e marque **`is_admin` = true**.
 3. Recarregue o app: a aba **Admin 🛠️** aparece para você.
 
 ### 6. Publicar (deploy grátis)
 - **Vercel:** importe o repositório, defina as duas variáveis de ambiente (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) e faça deploy. Build command `npm run build`, output `dist`.
 - **Netlify:** mesmo esquema (build `npm run build`, publish `dist`).
-- Mande o link no grupo. Cada amigo abre, faz **"Sou novo aqui"** e palpita. Dá para **instalar** como app pelo menu do navegador ("Adicionar à tela inicial").
+- Mande o link no grupo. Cada amigo abre, faz **"Sou novo aqui"** (nome + senha) e palpita. Quem já estava cadastrado antes da senha usa **"Já participo"**, toca no nome e **define a senha no primeiro acesso**. Dá para **instalar** como app pelo menu do navegador ("Adicionar à tela inicial").
 
 ---
 
@@ -70,7 +72,7 @@ Só são criados jogos que **ainda não começaram** — jogos já ocorridos ant
 ### Bom saber
 - **Mata-mata:** o placar gravado é o do tempo normal/prorrogação (pênaltis **não** entram no placar); "quem avançou" usa o vencedor geral (inclui pênaltis) — igualzinho à regra do bolão.
 - **Confrontos do mata-mata:** assim que a API conhece os times de cada chave, ela preenche sozinha no esqueleto semeado (sem duplicar). Você ainda pode ajustar à mão em **Admin → Confrontos** se preferir.
-- **Nomes:** os jogos criados saem em português via um mapa PT↔EN ([`supabase/functions/sync-resultados/teams.ts`](supabase/functions/sync-resultados/teams.ts)). Time fora do mapa aparece com o nome em inglês — é só acrescentar ao mapa.
+- **Nomes:** os jogos criados saem em português via um mapa PT↔EN dentro de [`supabase/functions/sync-resultados/index.ts`](supabase/functions/sync-resultados/index.ts) (constantes `TEAMS` e `PT_DISPLAY`). Time fora do mapa aparece com o nome em inglês — é só acrescentar ao mapa.
 - **Retorno da função:** o `invoke` devolve um JSON com `criados`, `vinculados`, `placaresAtualizados`, `preservadosManuais` e `ignoradosPassados` — útil pra conferir o que rolou.
 - **Selo:** resultados vindos da API aparecem com 🔄 (no card do jogo e no painel de Resultados).
 
@@ -88,5 +90,6 @@ Aba **Admin**:
 
 ## ⚠️ Notas importantes
 - **Segurança "na confiança":** o app fala direto com o banco pela anon key. A regra de ocultar palpites é aplicada no app, não blindada no servidor — um amigo técnico consegue espiar via DevTools. Risco aceito para o grupo de amigos.
+- **Login por senha:** a senha vira um hash SHA-256 (com sal fixo) no próprio navegador; o banco guarda só o hash e ele nunca é enviado de volta aos outros clientes. É um "cadeado social" para o grupo, não autenticação de verdade (sem e-mail, sem recuperação de senha). Esqueceu a senha? O admin limpa o campo `password_hash` do participante no Table Editor e a pessoa define uma nova no próximo acesso.
 - **Datas semeadas são aproximadas:** os horários do mata-mata no `schema.sql` são placeholders. Confira a tabela oficial da FIFA e ajuste em **Admin → Confrontos**.
 - **Ícone:** usa um SVG simples. Dá para trocar por um PNG/arte própria depois em `public/`.
