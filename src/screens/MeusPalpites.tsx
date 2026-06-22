@@ -68,7 +68,7 @@ export default function MeusPalpites() {
                   {finished ? (
                     <Badge pts={pts} />
                   ) : (
-                    <span className="text-xs text-[var(--t3)]">{locked ? 'aguardando resultado' : 'aberto'}</span>
+                    <span className="text-xs text-[var(--t3)]">{locked ? 'ao vivo' : 'aberto'}</span>
                   )}
                 </div>
               </li>

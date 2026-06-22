@@ -1,9 +1,10 @@
+import { useMemo } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './data/auth'
 import { useStore } from './data/store'
 import Entrada from './screens/Entrada'
 import Jogos from './screens/Jogos'
-import Classificacao from './screens/Classificacao'
+import Ligas from './screens/Ligas'
 import MeusPalpites from './screens/MeusPalpites'
 import Admin from './screens/Admin'
 
@@ -30,7 +31,7 @@ function Shell() {
       <main className="flex-1 px-4 pb-24 pt-2">
         <Routes>
           <Route path="/" element={<Jogos />} />
-          <Route path="/ranking" element={<Classificacao />} />
+          <Route path="/ligas" element={<Ligas />} />
           <Route path="/meus" element={<MeusPalpites />} />
           <Route path="/admin" element={me?.is_admin ? <Admin /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -57,12 +58,20 @@ function Header() {
 }
 
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
+  const { me } = useAuth()
+  const { leagueMembers } = useStore()
+
+  const pendingCount = useMemo(
+    () => (me ? leagueMembers.filter(m => m.participant_id === me.id && m.status === 'pending').length : 0),
+    [leagueMembers, me],
+  )
+
   const items = [
-    { to: '/', label: 'Jogos', icon: '⚽' },
-    { to: '/ranking', label: 'Ranking', icon: '🏆' },
-    { to: '/meus', label: 'Meus', icon: '📋' },
+    { to: '/', label: 'Jogos', icon: '⚽', badge: 0 },
+    { to: '/ligas', label: 'Ligas', icon: '🏆', badge: pendingCount },
+    { to: '/meus', label: 'Meus', icon: '📋', badge: 0 },
   ]
-  if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️' })
+  if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️', badge: 0 })
 
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.96)] backdrop-blur">
@@ -77,7 +86,14 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
             }`
           }
         >
-          <span className="text-lg">{it.icon}</span>
+          <span className="relative text-lg">
+            {it.icon}
+            {it.badge > 0 && (
+              <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+                {it.badge}
+              </span>
+            )}
+          </span>
           {it.label}
         </NavLink>
       ))}

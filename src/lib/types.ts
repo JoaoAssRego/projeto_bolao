@@ -51,3 +51,19 @@ export interface Prediction {
 export function isKnockout(stage: Stage): boolean {
   return stage !== 'group'
 }
+
+export interface League {
+  id: string
+  name: string
+  creator_id: string
+  created_at: string
+}
+
+export interface LeagueMember {
+  id: string
+  league_id: string
+  participant_id: string
+  status: 'pending' | 'accepted'
+  invited_by: string
+  created_at: string
+}

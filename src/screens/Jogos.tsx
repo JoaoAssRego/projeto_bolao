@@ -56,13 +56,13 @@ export default function Jogos() {
           onClick={() => setTab('encerrados')}
           className={`flex-1 rounded-lg py-2 transition-colors ${tab === 'encerrados' ? 'bg-[var(--accent)] text-[var(--accent-fg)]' : 'text-[var(--t3)]'}`}
         >
-          Travados ({encerrados.length})
+          Ao Vivo ({encerrados.length})
         </button>
       </div>
 
       {lista.length === 0 ? (
         <p className="py-10 text-center text-sm text-[var(--t3)]">
-          {tab === 'abertos' ? 'Nenhum jogo aberto para palpitar agora.' : 'Nenhum jogo travado ainda.'}
+          {tab === 'abertos' ? 'Nenhum jogo aberto para palpitar agora.' : 'Nenhum jogo ao vivo no momento.'}
         </p>
       ) : (
         lista.map((m) => (

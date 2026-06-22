@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { hashPassword } from '../lib/password'
-import type { Match, Participant, Prediction, Stage } from '../lib/types'
+import type { League, LeagueMember, Match, Participant, Prediction, Stage } from '../lib/types'
 
 // Colunas públicas de participants — NUNCA inclui password_hash, que fica só no
 // banco e é conferido pontualmente no login (loginWithPassword).
@@ -15,6 +15,8 @@ interface StoreValue {
   participants: Participant[]
   matches: Match[]
   predictions: Prediction[]
+  leagues: League[]
+  leagueMembers: LeagueMember[]
   refresh: () => Promise<void>
   createParticipant: (name: string, password: string) => Promise<Participant>
   loginWithPassword: (name: string, password: string) => Promise<Participant>
@@ -23,6 +25,12 @@ interface StoreValue {
   saveMatchTeams: (matchId: string, home: string, away: string) => Promise<void>
   saveKickoff: (matchId: string, kickoffIso: string) => Promise<void>
   createMatch: (input: NewMatch) => Promise<void>
+  createLeague: (name: string, creatorId: string) => Promise<League>
+  deleteLeague: (leagueId: string) => Promise<void>
+  inviteToLeague: (leagueId: string, participantId: string, invitedById: string) => Promise<void>
+  acceptInvite: (leagueId: string, participantId: string) => Promise<void>
+  declineInvite: (leagueId: string, participantId: string) => Promise<void>
+  removeMember: (leagueId: string, participantId: string) => Promise<void>
 }
 
 export interface NewMatch {
@@ -39,6 +47,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [leagues, setLeagues] = useState<League[]>([])
+  const [leagueMembers, setLeagueMembers] = useState<LeagueMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mounted = useRef(true)
@@ -50,18 +60,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      const [p, m, pr] = await Promise.all([
+      const [p, m, pr, lg, lm] = await Promise.all([
         supabase.from('participants').select(PARTICIPANT_COLS).order('created_at'),
         supabase.from('matches').select('*'),
         supabase.from('predictions').select('*'),
+        supabase.from('leagues').select('*'),
+        supabase.from('league_members').select('*'),
       ])
       if (p.error) throw p.error
       if (m.error) throw m.error
       if (pr.error) throw pr.error
+      if (lg.error) throw lg.error
+      if (lm.error) throw lm.error
       if (!mounted.current) return
       setParticipants(p.data as Participant[])
       setMatches(m.data as Match[])
       setPredictions(pr.data as Prediction[])
+      setLeagues(lg.data as League[])
+      setLeagueMembers(lm.data as LeagueMember[])
       setError(null)
     } catch (e: unknown) {
       if (mounted.current) setError(e instanceof Error ? e.message : 'Erro ao carregar dados.')
@@ -80,6 +96,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leagues' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_members' }, () => void refresh())
       .subscribe()
     return () => {
       mounted.current = false
@@ -194,6 +212,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [matches, refresh],
   )
 
+  const createLeague = useCallback(async (name: string, creatorId: string) => {
+    const { data, error: err } = await supabase
+      .from('leagues')
+      .insert({ name: name.trim(), creator_id: creatorId })
+      .select('*')
+      .single()
+    if (err) throw err
+    // Adiciona o criador como membro aceito imediatamente.
+    const { error: mErr } = await supabase
+      .from('league_members')
+      .insert({ league_id: data.id, participant_id: creatorId, status: 'accepted', invited_by: creatorId })
+    if (mErr) throw mErr
+    await refresh()
+    return data as League
+  }, [refresh])
+
+  const deleteLeague = useCallback(async (leagueId: string) => {
+    const { error: err } = await supabase.from('leagues').delete().eq('id', leagueId)
+    if (err) throw err
+    await refresh()
+  }, [refresh])
+
+  const inviteToLeague = useCallback(async (leagueId: string, participantId: string, invitedById: string) => {
+    const { error: err } = await supabase
+      .from('league_members')
+      .insert({ league_id: leagueId, participant_id: participantId, status: 'pending', invited_by: invitedById })
+    if (err) throw err
+    await refresh()
+  }, [refresh])
+
+  const acceptInvite = useCallback(async (leagueId: string, participantId: string) => {
+    const { error: err } = await supabase
+      .from('league_members')
+      .update({ status: 'accepted' })
+      .eq('league_id', leagueId)
+      .eq('participant_id', participantId)
+    if (err) throw err
+    await refresh()
+  }, [refresh])
+
+  const declineInvite = useCallback(async (leagueId: string, participantId: string) => {
+    const { error: err } = await supabase
+      .from('league_members')
+      .delete()
+      .eq('league_id', leagueId)
+      .eq('participant_id', participantId)
+    if (err) throw err
+    await refresh()
+  }, [refresh])
+
+  const removeMember = useCallback(async (leagueId: string, participantId: string) => {
+    const { error: err } = await supabase
+      .from('league_members')
+      .delete()
+      .eq('league_id', leagueId)
+      .eq('participant_id', participantId)
+    if (err) throw err
+    await refresh()
+  }, [refresh])
+
   const value = useMemo<StoreValue>(
     () => ({
       loading,
@@ -202,6 +280,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       participants,
       matches,
       predictions,
+      leagues,
+      leagueMembers,
       refresh,
       createParticipant,
       loginWithPassword,
@@ -210,8 +290,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saveMatchTeams,
       saveKickoff,
       createMatch,
+      createLeague,
+      deleteLeague,
+      inviteToLeague,
+      acceptInvite,
+      declineInvite,
+      removeMember,
     }),
-    [loading, error, participants, matches, predictions, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveMatchTeams, saveKickoff, createMatch],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveMatchTeams, saveKickoff, createMatch, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
