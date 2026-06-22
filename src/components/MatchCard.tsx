@@ -34,22 +34,17 @@ export default function MatchCard({ match, me, predictions, participants, onSave
         </div>
       </div>
 
-      {/* Teams + score */}
-      <div className="px-4 pt-5 pb-4 flex items-center justify-between gap-2">
-        <TeamLabel name={match.home_team} align="left" />
-
-        {finished ? (
-          <div className="flex flex-col items-center gap-1 px-2">
-            <div className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
-              {match.home_score} <span className="text-[var(--t3)] font-light">×</span> {match.away_score}
-            </div>
-            <div className="text-[10px] uppercase tracking-widest text-[var(--t3)]">resultado</div>
-          </div>
+      {/* Teams + score area */}
+      <div className="px-4 pt-4 pb-3">
+        {!teamsDefined ? (
+          <p className="text-center text-sm text-[var(--t3)] py-3">Confronto ainda não definido.</p>
+        ) : finished ? (
+          <FinishedRow match={match} />
+        ) : !locked ? (
+          <Editor key={myPred?.updated_at ?? 'novo'} match={match} initial={myPred} onSave={onSave} />
         ) : (
-          <span className="text-[var(--t3)] text-xl px-2">×</span>
+          <LockedRow match={match} />
         )}
-
-        <TeamLabel name={match.away_team} align="right" />
       </div>
 
       {isKnockout(match.stage) && finished && match.advancer && (
@@ -58,47 +53,66 @@ export default function MatchCard({ match, me, predictions, participants, onSave
         </p>
       )}
 
-      {/* Bottom section */}
-      <div className="border-t border-[var(--border)] px-4 py-3">
-        {!teamsDefined ? (
-          <p className="text-center text-sm text-[var(--t3)]">Confronto ainda não definido.</p>
-        ) : !locked ? (
-          <Editor key={myPred?.updated_at ?? 'novo'} initial={myPred} onSave={onSave} />
-        ) : (
+      {/* Revealed predictions (locked state) */}
+      {teamsDefined && locked && (
+        <div className="border-t border-[var(--border)] px-4 py-3">
           <Revealed match={match} predictions={predictions} participants={participants} meId={me.id} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
+/* Finished: teams on sides, score in center */
+function FinishedRow({ match }: { match: Match }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <TeamLabel name={match.home_team} align="left" />
+      <div className="flex flex-col items-center gap-1 px-2">
+        <div className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
+          {match.home_score} <span className="text-[var(--t3)] font-light">×</span> {match.away_score}
+        </div>
+        <div className="text-[10px] uppercase tracking-widest text-[var(--t3)]">resultado</div>
+      </div>
+      <TeamLabel name={match.away_team} align="right" />
+    </div>
+  )
+}
+
+/* Locked but no result yet: teams on sides, × in center */
+function LockedRow({ match }: { match: Match }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <TeamLabel name={match.home_team} align="left" />
+      <span className="text-[var(--t3)] text-xl px-2">×</span>
+      <TeamLabel name={match.away_team} align="right" />
+    </div>
+  )
+}
+
+/* Flag stacked above name, used for non-edit states */
 function TeamLabel({ name, align }: { name: string | null; align: 'left' | 'right' }) {
   const flag = getFlag(name)
   return (
     <div className={`flex-1 min-w-0 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-      {flag ? (
-        <span className="text-[26px] leading-none">{flag}</span>
-      ) : (
-        <span className="text-[26px] leading-none opacity-30">🏴</span>
-      )}
-      <span
-        className={`text-[13px] font-semibold leading-tight ${
-          name ? 'text-[var(--t1)]' : 'italic text-[var(--t3)]'
-        } truncate max-w-full`}
-      >
+      <span className="text-[26px] leading-none">{flag ?? '🏴'}</span>
+      <span className={`text-[13px] font-semibold leading-tight truncate max-w-full ${name ? 'text-[var(--t1)]' : 'italic text-[var(--t3)]'}`}>
         {name ?? 'A definir'}
       </span>
     </div>
   )
 }
 
-function Editor({ initial, onSave }: { initial?: Prediction; onSave: (h: number, a: number) => Promise<void> }) {
+/* Edit mode: flag + name + drum on each side, inline */
+function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction; onSave: (h: number, a: number) => Promise<void> }) {
   const [home, setHome] = useState<number | ''>(initial ? initial.home_score : '')
   const [away, setAway] = useState<number | ''>(initial ? initial.away_score : '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   const canSave = home !== '' && away !== '' && !saving
+  const homeFlag = getFlag(match.home_team)
+  const awayFlag = getFlag(match.away_team)
 
   async function handleSave() {
     if (home === '' || away === '') return
@@ -113,13 +127,40 @@ function Editor({ initial, onSave }: { initial?: Prediction; onSave: (h: number,
   }
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-col gap-3">
+      {/* Teams + drums in one row */}
       <div className="flex items-center gap-1">
-        <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
-        <span className="text-[var(--t3)] text-xl px-1">×</span>
-        <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" />
+        {/* Home: [flag][name][drum] */}
+        <div className="flex flex-1 min-w-0 items-center gap-1">
+          <span className="text-[20px] leading-none flex-shrink-0">{homeFlag ?? '🏴'}</span>
+          <span className="text-[11px] font-semibold text-[var(--t1)] truncate flex-1 min-w-0">
+            {match.home_team}
+          </span>
+          <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
+        </div>
+
+        <span className="text-[var(--t3)] text-base flex-shrink-0 px-0.5">×</span>
+
+        {/* Away: [drum][name][flag] */}
+        <div className="flex flex-1 min-w-0 items-center gap-1">
+          <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" />
+          <span className="text-[11px] font-semibold text-[var(--t1)] truncate flex-1 min-w-0 text-right">
+            {match.away_team}
+          </span>
+          <span className="text-[20px] leading-none flex-shrink-0">{awayFlag ?? '🏴'}</span>
+        </div>
       </div>
-      <div className="flex flex-col items-end gap-1">
+
+      {/* Save row */}
+      <div className="flex items-center justify-end gap-3">
+        {!initial && (
+          <span className="text-[10px] text-[var(--t3)] flex items-center gap-1">
+            <svg width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+              <path d="M5 1v12M5 1L2 4M5 1L8 4M5 13L2 10M5 13L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            arraste
+          </span>
+        )}
         <button
           onClick={handleSave}
           disabled={!canSave}
@@ -131,14 +172,6 @@ function Editor({ initial, onSave }: { initial?: Prediction; onSave: (h: number,
         >
           {saved ? 'Salvo ✓' : initial ? 'Editar' : 'Palpitar'}
         </button>
-        {!initial && (
-          <span className="text-[10px] text-[var(--t3)] flex items-center gap-1">
-            <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden="true">
-              <path d="M5 1v10M5 1L2 4M5 1L8 4M5 11L2 8M5 11L8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            arraste
-          </span>
-        )}
       </div>
     </div>
   )
