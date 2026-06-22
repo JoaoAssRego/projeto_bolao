@@ -79,27 +79,18 @@ function FinishedRow({ match }: { match: Match }) {
   )
 }
 
-/* Locked but no result yet: teams on sides, live score in center if available */
+/* Locked but no result yet: teams on sides, in-progress indicator in center */
 function LockedRow({ match }: { match: Match }) {
-  const hasLiveScore = match.home_score != null && match.away_score != null
-
   return (
     <div className="flex items-center justify-between gap-2">
       <TeamLabel name={match.home_team} align="left" />
-      <div className="flex flex-col items-center gap-1 px-2">
-        {hasLiveScore ? (
-          <>
-            <div className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
-              {match.home_score} <span className="text-[var(--t3)] font-light">×</span> {match.away_score}
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
-              <span className="text-[10px] uppercase tracking-widest text-red-500 font-semibold">ao vivo</span>
-            </div>
-          </>
-        ) : (
-          <span className="text-[var(--t3)] text-xl">×</span>
-        )}
+      <div className="flex flex-col items-center gap-1.5 px-2">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+          <span className="text-[11px] uppercase tracking-widest text-red-400 font-bold">ao vivo</span>
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+        </div>
+        <span className="text-[10px] text-[var(--t3)]">aguardando placar</span>
       </div>
       <TeamLabel name={match.away_team} align="right" />
     </div>

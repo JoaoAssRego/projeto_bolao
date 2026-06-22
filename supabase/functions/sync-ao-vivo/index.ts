@@ -30,6 +30,7 @@ interface ApiMatch {
 interface DbMatch {
   id: string
   stage: string
+  kickoff: string
   external_id: number | null
   result_source: string
   finished: boolean
@@ -62,25 +63,25 @@ Deno.serve(async () => {
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
-  // Busca apenas jogos que já começaram (kickoff <= agora) e ainda não foram finalizados.
-  const now = new Date().toISOString()
+  // Só busca jogos que começaram há pelo menos 90 min (tempo mínimo para um jogo terminar).
+  const nowMs = Date.now()
+  const ninetyMinAgo = new Date(nowMs - 90 * 60 * 1000).toISOString()
   const { data: liveMatches, error: dbErr } = await supabase
     .from('matches')
-    .select('id, stage, external_id, result_source, finished, home_team, away_team')
-    .lte('kickoff', now)
+    .select('id, stage, kickoff, external_id, result_source, finished, home_team, away_team')
+    .lte('kickoff', ninetyMinAgo)
     .eq('finished', false)
 
   if (dbErr) return json({ error: 'Falha ao ler matches.', detail: dbErr.message }, 500)
 
   const live = (liveMatches ?? []) as DbMatch[]
 
-  // Sem jogos ao vivo: retorna sem chamar a API.
-  if (live.length === 0) {
-    return json({ ok: true, skipped: true, reason: 'Nenhum jogo ao vivo no momento.' })
-  }
-
-  // Filtra apenas jogos com external_id (vinculados à API) e que não foram inseridos manualmente.
-  const candidates = live.filter((m) => m.external_id != null && m.result_source !== 'manual')
+  // Só processa jogos com 95+ min de kickoff (tempo suficiente para qualquer partida terminar)
+  // e que tenham external_id para buscar na API.
+  const candidates = live.filter((m) => {
+    if (m.external_id == null || m.result_source === 'manual') return false
+    return nowMs >= new Date(m.kickoff).getTime() + 95 * 60 * 1000
+  })
   if (candidates.length === 0) {
     return json({ ok: true, skipped: true, reason: 'Jogos ao vivo sem external_id ou todos manuais.' })
   }

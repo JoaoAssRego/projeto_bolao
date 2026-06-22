@@ -5,7 +5,10 @@ import { hashPassword } from '../lib/password'
 import type { League, LeagueMember, Match, Participant, Prediction, Stage } from '../lib/types'
 
 // Colunas públicas de participants — NUNCA inclui password_hash nem auth_user_id.
+// has_auth existe apenas após a migration 0004 — o select falha graciosamente se
+// a coluna ainda não existe (Supabase retorna erro, capturado no refresh).
 const PARTICIPANT_COLS = 'id,name,is_admin,created_at,has_password,has_auth'
+const PARTICIPANT_COLS_LEGACY = 'id,name,is_admin,created_at,has_password'
 
 // Converte o nome do participante em e-mail interno para o Supabase Auth.
 // Formato: nome normalizado + @bolao.local (domínio fake, sem envio de e-mail).
@@ -72,13 +75,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      const [p, m, pr, lg, lm] = await Promise.all([
-        supabase.from('participants').select(PARTICIPANT_COLS).order('created_at'),
+      // Tenta com colunas novas (pós-migration 0004); cai para legado se não existirem.
+      let pResult = await supabase.from('participants').select(PARTICIPANT_COLS).order('created_at')
+      if (pResult.error?.code === 'PGRST204') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pResult = await supabase.from('participants').select(PARTICIPANT_COLS_LEGACY).order('created_at') as any
+      }
+      const [m, pr, lg, lm] = await Promise.all([
         supabase.from('matches').select('*'),
         supabase.from('predictions').select('*'),
         supabase.from('leagues').select('*'),
         supabase.from('league_members').select('*'),
       ])
+      const p = pResult
       if (p.error) throw p.error
       if (m.error) throw m.error
       if (pr.error) throw pr.error
@@ -139,6 +148,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Login via Supabase Auth. Para participantes antigos (sem auth_user_id),
   // verifica o hash legado e cria a conta auth na hora (migração lazy).
+  // Se a migration 0004 ainda não foi aplicada, cai para o fluxo legado puro.
   const loginWithPassword = useCallback(async (name: string, password: string) => {
     const trimmed = name.trim()
     const email = toAuthEmail(trimmed)
@@ -156,26 +166,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return p as Participant
     }
 
-    // Migração lazy: participante antigo sem conta auth ainda
-    const { data: existing, error: fetchErr } = await supabase
-      .from('participants')
-      .select('id,name,is_admin,created_at,password_hash,auth_user_id,has_password')
-      .eq('name', trimmed)
-      .maybeSingle()
-    if (fetchErr) throw fetchErr
+    // Busca participante — tenta com auth_user_id (pós-migration), cai para legado
+    const fullSelect = 'id,name,is_admin,created_at,password_hash,auth_user_id,has_password'
+    const legacySelect = 'id,name,is_admin,created_at,password_hash,has_password'
+    let existingResult = await supabase.from('participants').select(fullSelect).eq('name', trimmed).maybeSingle()
+    const migrationApplied = existingResult.error?.code !== 'PGRST204'
+    if (!migrationApplied) {
+      existingResult = await supabase.from('participants').select(legacySelect).eq('name', trimmed).maybeSingle()
+    }
+    if (existingResult.error) throw existingResult.error
+    const existing = existingResult.data
     if (!existing) throw new Error('not-found')
-    // Se já tem auth_user_id mas a senha não bateu acima, é senha errada
-    if (existing.auth_user_id) throw new Error('wrong-password')
+
+    // Se migration aplicada e já tem auth_user_id, mas signInWithPassword falhou → senha errada
+    if (migrationApplied && existing.auth_user_id) throw new Error('wrong-password')
 
     // Verifica hash legado
     const hash = await hashPassword(password)
-    if (existing.password_hash && existing.password_hash !== hash) {
-      throw new Error('wrong-password')
+    if (existing.password_hash && existing.password_hash !== hash) throw new Error('wrong-password')
+
+    // Se migration ainda não aplicada: fluxo legado puro (sem Supabase Auth)
+    if (!migrationApplied) {
+      if (!existing.password_hash) {
+        await supabase.from('participants').update({ password_hash: hash }).eq('id', existing.id)
+      }
+      await refresh()
+      const { password_hash: _ph, ...rest } = existing
+      return { ...rest, has_password: true, has_auth: false } as Participant
     }
 
-    // Cria conta auth e vincula ao participante existente
-    const { error: signUpErr } = await supabase.auth.signUp({ email, password })
+    // Migration aplicada: cria conta auth e vincula ao participante existente
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password })
     if (signUpErr) throw signUpErr
+    // Se confirmação de e-mail está ativa, signUp retorna session=null — orienta o usuário
+    if (!signUpData.session) throw new Error('email-confirmation-required')
 
     const { error: claimErr } = await supabase.rpc('claim_participant', { p_name: trimmed })
     if (claimErr) throw claimErr

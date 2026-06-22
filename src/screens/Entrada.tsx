@@ -46,7 +46,9 @@ export default function Entrada() {
       signIn(me)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : ''
-      setErr(msg.includes('wrong-password') ? 'Senha incorreta. Tente de novo.' : 'Não consegui entrar. Tente de novo.')
+      if (msg.includes('wrong-password')) setErr('Senha incorreta. Tente de novo.')
+      else if (msg.includes('email-confirmation-required')) setErr('Ative "Disable email confirmations" no Supabase Auth → Settings antes de continuar.')
+      else setErr('Não consegui entrar. Tente de novo.')
     } finally {
       setBusy(false)
     }
