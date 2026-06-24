@@ -63,22 +63,31 @@ function Header() {
 
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const { me } = useAuth()
-  const { leagueMembers, matches } = useStore()
+  const { leagueMembers, matches, predictions } = useStore()
 
   const pendingCount = useMemo(
     () => (me ? leagueMembers.filter(m => m.participant_id === me.id && m.status === 'pending').length : 0),
     [leagueMembers, me],
   )
 
-  const liveCount = useMemo(
-    () => matches.filter((m) => isLocked(m) && !hasResult(m)).length,
-    [matches],
-  )
+  const unpredictedCount = useMemo(() => {
+    if (!me) return 0
+    const brtDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+    const today = brtDay.format(new Date())
+    return matches.filter(
+      (m) =>
+        brtDay.format(new Date(m.kickoff)) === today &&
+        !isLocked(m) &&
+        m.home_team &&
+        m.away_team &&
+        !predictions.some((p) => p.match_id === m.id && p.participant_id === me.id),
+    ).length
+  }, [matches, predictions, me])
 
   const items = [
     { to: '/', label: 'Início', icon: '🏅', badge: 0 },
     { to: '/ligas', label: 'Liga', icon: '🏆', badge: pendingCount },
-    { to: '/jogos', label: 'Jogos', icon: '⚽', badge: liveCount },
+    { to: '/jogos', label: 'Jogos', icon: '⚽', badge: unpredictedCount },
     { to: '/meus', label: 'Meus', icon: '📋', badge: 0 },
   ]
   if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️', badge: 0 })
