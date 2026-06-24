@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './data/auth'
 import { useStore } from './data/store'
+import { isLocked, hasResult } from './lib/scoring'
 import Entrada from './screens/Entrada'
+import Home from './screens/Home'
 import Jogos from './screens/Jogos'
 import Ligas from './screens/Ligas'
 import MeusPalpites from './screens/MeusPalpites'
@@ -31,7 +33,8 @@ function Shell() {
       <Header />
       <main className="flex-1 px-4 pb-24 pt-2">
         <Routes>
-          <Route path="/" element={<Jogos />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/jogos" element={<Jogos />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/meus" element={<MeusPalpites />} />
           <Route path="/admin" element={me?.is_admin ? <Admin /> : <Navigate to="/" replace />} />
@@ -60,16 +63,22 @@ function Header() {
 
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const { me } = useAuth()
-  const { leagueMembers } = useStore()
+  const { leagueMembers, matches } = useStore()
 
   const pendingCount = useMemo(
     () => (me ? leagueMembers.filter(m => m.participant_id === me.id && m.status === 'pending').length : 0),
     [leagueMembers, me],
   )
 
+  const liveCount = useMemo(
+    () => matches.filter((m) => isLocked(m) && !hasResult(m)).length,
+    [matches],
+  )
+
   const items = [
-    { to: '/', label: 'Jogos', icon: '⚽', badge: 0 },
-    { to: '/ligas', label: 'Ligas', icon: '🏆', badge: pendingCount },
+    { to: '/', label: 'Início', icon: '🏅', badge: 0 },
+    { to: '/ligas', label: 'Liga', icon: '🏆', badge: pendingCount },
+    { to: '/jogos', label: 'Jogos', icon: '⚽', badge: liveCount },
     { to: '/meus', label: 'Meus', icon: '📋', badge: 0 },
   ]
   if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️', badge: 0 })
