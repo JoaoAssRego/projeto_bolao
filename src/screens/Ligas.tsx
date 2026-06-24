@@ -52,12 +52,15 @@ export default function Ligas() {
     return participants.filter(p => memberIds.has(p.id))
   }, [currentLeagueId, participants, leagueMembers])
 
+  const selectedLeague = currentLeagueId ? (leagues.find(l => l.id === currentLeagueId) ?? null) : null
+
+  // Numa liga, todos começam zerados a partir da criação dela: só contam jogos
+  // cujo início seja a partir de selectedLeague.created_at. No Global, conta tudo.
   const ranking = useMemo(
-    () => withRanks(buildStandings(filteredParticipants, matches, predictions)),
-    [filteredParticipants, matches, predictions],
+    () => withRanks(buildStandings(filteredParticipants, matches, predictions, selectedLeague?.created_at)),
+    [filteredParticipants, matches, predictions, selectedLeague],
   )
 
-  const selectedLeague = currentLeagueId ? (leagues.find(l => l.id === currentLeagueId) ?? null) : null
   const memberCount = selectedLeague
     ? leagueMembers.filter(m => m.league_id === selectedLeague.id && m.status === 'accepted').length
     : 0
