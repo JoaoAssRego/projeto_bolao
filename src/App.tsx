@@ -46,7 +46,7 @@ function Shell() {
 function Header() {
   const { me, signOut } = useAuth()
   return (
-    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.92)] px-4 py-3 backdrop-blur">
+    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[oklch(20%_0.030_155_/_0.92)] px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-2">
         <img src="/favicon.svg" alt="" className="h-7 w-7" />
         <span className="font-bold tracking-tight text-[var(--t1)]">Bolão da Copa</span>
@@ -75,7 +75,7 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️', badge: 0 })
 
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.96)] backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(20%_0.030_155_/_0.96)] backdrop-blur">
       {items.map((it) => (
         <NavLink
           key={it.to}

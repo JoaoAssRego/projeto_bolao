@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-23T00:00:00Z",
+  "title": "Design System: Bolão da Copa",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Número 10",
+        "canonical": "oklch(87% 0.195 95)",
+        "tonalRamp": [
+          "oklch(15% 0.06 95)",
+          "oklch(25% 0.09 95)",
+          "oklch(40% 0.12 95)",
+          "oklch(55% 0.16 95)",
+          "oklch(70% 0.185 95)",
+          "oklch(80% 0.195 95)",
+          "oklch(87% 0.195 95)",
+          "oklch(94% 0.12 95)"
+        ],
+        "derived": {
+          "accent-muted": "oklch(87% 0.195 95 / 0.12)",
+          "accent-ring": "oklch(87% 0.195 95 / 0.40)"
+        }
+      },
+      "ok": {
+        "role": "secondary",
+        "displayName": "Verde Certo",
+        "canonical": "oklch(55% 0.135 155)",
+        "tonalRamp": [
+          "oklch(10% 0.04 155)",
+          "oklch(20% 0.07 155)",
+          "oklch(30% 0.09 155)",
+          "oklch(42% 0.11 155)",
+          "oklch(55% 0.135 155)",
+          "oklch(65% 0.12 155)",
+          "oklch(78% 0.08 155)",
+          "oklch(90% 0.04 155)"
+        ]
+      },
+      "live": {
+        "role": "tertiary",
+        "displayName": "Ao Vivo",
+        "canonical": "oklch(63% 0.257 29)",
+        "tonalRamp": [
+          "oklch(15% 0.09 29)",
+          "oklch(25% 0.14 29)",
+          "oklch(38% 0.18 29)",
+          "oklch(50% 0.22 29)",
+          "oklch(63% 0.257 29)",
+          "oklch(72% 0.22 29)",
+          "oklch(83% 0.15 29)",
+          "oklch(92% 0.06 29)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Grama Noturna",
+        "canonical": "oklch(11% 0.025 155)",
+        "tonalRamp": [
+          "oklch(5% 0.01 155)",
+          "oklch(11% 0.025 155)",
+          "oklch(16.5% 0.032 155)",
+          "oklch(21% 0.042 155)",
+          "oklch(24% 0.042 155)",
+          "oklch(40% 0.04 155)",
+          "oklch(65% 0.025 155)",
+          "oklch(88% 0.01 155)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Score digits in DrumPicker only. Never used for prose. The only element at this size."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Login screen title. One instance per session start."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headers within screens. One per screen maximum."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Names, predictions, match details. The workhorse level. Weight varies 400-600 for internal hierarchy."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Stage pills, meta labels (RESULTADO, AO VIVO, pts). Uppercase only at 11px and below."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "color 150ms ease-in-out, background-color 150ms ease-in-out",
+        "purpose": "Default Tailwind transition-colors. Used on buttons, nav tabs, and row hover states."
+      },
+      {
+        "name": "all-transition",
+        "value": "all 150ms ease-in-out",
+        "purpose": "transition-all used on save button to animate color + size changes between save states."
+      },
+      {
+        "name": "pulse-live",
+        "value": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "purpose": "Tailwind animate-pulse on the 'ao vivo' red dots. Suppress under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "container",
+        "value": "448px",
+        "purpose": "max-w-md — the single breakpoint. App is mobile-first; this is the only layout constraint."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-width CTA. Yellow accent. The only button that commands immediate action.",
+      "html": "<button class=\"ds-btn-primary\">Palpitar</button>",
+      "css": ".ds-btn-primary { display: block; width: 100%; background: var(--accent, oklch(87% 0.195 95)); color: var(--accent-fg, oklch(12% 0.025 155)); border: none; border-radius: 24px; padding: 16px 24px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 18px; font-weight: 700; cursor: pointer; transition: opacity 0.15s ease-in-out; } .ds-btn-primary:active { opacity: 0.9; } .ds-btn-primary:focus-visible { outline: 2px solid oklch(87% 0.195 95 / 0.40); outline-offset: 2px; } .ds-btn-primary:disabled { background: var(--raised, oklch(21% 0.042 155)); color: var(--t3, oklch(46% 0.018 155)); cursor: default; opacity: 1; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action. Outline only, no fill. Used alongside the primary button.",
+      "html": "<button class=\"ds-btn-ghost\">Já participo</button>",
+      "css": ".ds-btn-ghost { display: block; width: 100%; background: transparent; color: var(--t1, oklch(95% 0.008 155)); border: 1px solid var(--border, oklch(24% 0.042 155)); border-radius: 24px; padding: 16px 24px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 18px; font-weight: 600; cursor: pointer; transition: background 0.15s ease-in-out; } .ds-btn-ghost:active { background: var(--surface, oklch(16.5% 0.032 155)); } .ds-btn-ghost:focus-visible { outline: 2px solid oklch(87% 0.195 95 / 0.40); outline-offset: 2px; }"
+    },
+    {
+      "name": "Save Button",
+      "kind": "button",
+      "refersTo": "button-save",
+      "description": "Inline save action on MatchCard. Smaller than primary. Three visual states: pending (yellow), saved (green for 1.8s), disabled (gray).",
+      "html": "<button class=\"ds-btn-save\">Palpitar</button>",
+      "css": ".ds-btn-save { background: var(--accent, oklch(87% 0.195 95)); color: var(--accent-fg, oklch(12% 0.025 155)); border: none; border-radius: 12px; padding: 10px 20px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s ease-in-out, color 0.15s ease-in-out; } .ds-btn-save.saved { background: var(--ok, oklch(55% 0.135 155)); color: var(--ok-fg, oklch(95% 0.008 155)); } .ds-btn-save:disabled { background: var(--raised, oklch(21% 0.042 155)); color: var(--t3, oklch(46% 0.018 155)); cursor: default; } .ds-btn-save:focus-visible { outline: 2px solid oklch(87% 0.195 95 / 0.40); outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Text and password inputs on the login screen. Surface background, no border at rest, yellow focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Seu nome ou apelido\" />",
+      "css": ".ds-input { display: block; width: 100%; box-sizing: border-box; background: var(--surface, oklch(16.5% 0.032 155)); color: var(--t1, oklch(95% 0.008 155)); border: none; border-radius: 12px; padding: 12px 16px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 18px; font-weight: 400; outline: none; } .ds-input::placeholder { color: var(--t3, oklch(46% 0.018 155)); } .ds-input:focus-visible { box-shadow: 0 0 0 2px var(--accent, oklch(87% 0.195 95)); }"
+    },
+    {
+      "name": "DrumPicker",
+      "kind": "custom",
+      "refersTo": "button-save",
+      "description": "The signature score-entry component. Drag-to-spin vertical number roller. The yellow 42px digit is the emotional center of the prediction experience.",
+      "html": "<div class=\"ds-drum\" role=\"spinbutton\" aria-valuenow=\"2\" aria-valuemin=\"0\" aria-valuemax=\"20\" aria-label=\"gols mandante\"><button class=\"ds-drum-chevron\" aria-label=\"aumentar\" tabindex=\"-1\"><svg width=\"16\" height=\"10\" viewBox=\"0 0 16 10\" fill=\"none\"><path d=\"M1 9L8 2L15 9\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button><span class=\"ds-drum-digit\">2</span><button class=\"ds-drum-chevron\" aria-label=\"diminuir\" tabindex=\"-1\"><svg width=\"16\" height=\"10\" viewBox=\"0 0 16 10\" fill=\"none\"><path d=\"M1 1L8 8L15 1\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button></div>",
+      "css": ".ds-drum { display: flex; flex-direction: column; align-items: center; user-select: none; touch-action: none; border-radius: 12px; cursor: ns-resize; transition: background 0.1s ease-in-out; } .ds-drum:active { background: oklch(87% 0.195 95 / 0.12); } .ds-drum-digit { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 42px; font-weight: 800; line-height: 1; width: 52px; text-align: center; font-variant-numeric: tabular-nums; color: var(--accent, oklch(87% 0.195 95)); } .ds-drum-chevron { background: none; border: none; padding: 6px; color: var(--t3, oklch(46% 0.018 155)); cursor: pointer; transition: color 0.15s ease-in-out; } .ds-drum-chevron:hover { color: var(--t2, oklch(70% 0.022 155)); } .ds-drum-chevron:disabled { opacity: 0.3; pointer-events: none; }"
+    },
+    {
+      "name": "Stage Pill",
+      "kind": "chip",
+      "description": "Metadata chip shown in MatchCard header. Group stage, knockout round labels.",
+      "html": "<span class=\"ds-stage-pill\">GRUPO A</span>",
+      "css": ".ds-stage-pill { display: inline-block; background: var(--raised, oklch(21% 0.042 155)); color: var(--t2, oklch(70% 0.022 155)); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 9999px; padding: 4px 12px; }"
+    },
+    {
+      "name": "Points Badge",
+      "kind": "chip",
+      "description": "Inline reward indicator shown after predictions are revealed. Three semantic states: 10pts (yellow), 5pts (green), 0pts (gray).",
+      "html": "<span class=\"ds-badge ds-badge-10\">10 pts</span> <span class=\"ds-badge ds-badge-5\">5 pts</span> <span class=\"ds-badge ds-badge-0\">0 pts</span>",
+      "css": ".ds-badge { display: inline-block; width: 48px; padding: 2px 8px; text-align: center; border-radius: 6px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-badge-10 { background: var(--accent, oklch(87% 0.195 95)); color: var(--accent-fg, oklch(12% 0.025 155)); } .ds-badge-5 { background: var(--ok, oklch(55% 0.135 155)); color: var(--ok-fg, oklch(95% 0.008 155)); } .ds-badge-0 { background: var(--raised, oklch(21% 0.042 155)); color: var(--t3, oklch(46% 0.018 155)); }"
+    },
+    {
+      "name": "Ranking Row",
+      "kind": "card",
+      "description": "The most emotionally loaded component. My row gets the yellow accent-muted treatment. #1 rank circle gets the yellow badge. Points are the largest number.",
+      "html": "<li class=\"ds-rank-row ds-rank-row-me\"><span class=\"ds-rank-badge ds-rank-badge-1\">1</span><div class=\"ds-rank-info\"><div class=\"ds-rank-name\">João <span class=\"ds-rank-you\">(você)</span></div><div class=\"ds-rank-sub\">3 cravadas · 5 resultados · 8 jogos</div></div><div class=\"ds-rank-points\"><div class=\"ds-rank-pts-value\">72</div><div class=\"ds-rank-pts-label\">PTS</div></div></li>",
+      "css": ".ds-rank-row { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border, oklch(24% 0.042 155)); background: var(--surface, oklch(16.5% 0.032 155)); border-radius: 12px; padding: 12px; list-style: none; } .ds-rank-row-me { border-color: oklch(87% 0.195 95 / 0.40); background: oklch(87% 0.195 95 / 0.12); } .ds-rank-badge { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 700; background: var(--raised, oklch(21% 0.042 155)); color: var(--t2, oklch(70% 0.022 155)); } .ds-rank-badge-1 { background: var(--accent, oklch(87% 0.195 95)); color: var(--accent-fg, oklch(12% 0.025 155)); } .ds-rank-info { flex: 1; min-width: 0; } .ds-rank-name { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: var(--t1, oklch(95% 0.008 155)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-rank-you { color: var(--t3, oklch(46% 0.018 155)); font-weight: 400; } .ds-rank-sub { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: var(--t3, oklch(46% 0.018 155)); margin-top: 2px; } .ds-rank-points { text-align: right; } .ds-rank-pts-value { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 20px; font-weight: 800; color: var(--t1, oklch(95% 0.008 155)); font-variant-numeric: tabular-nums; } .ds-rank-pts-label { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3, oklch(46% 0.018 155)); }"
+    },
+    {
+      "name": "Match Card",
+      "kind": "card",
+      "description": "The core prediction card. Header with stage pill and kickoff time, body with teams and score area, optional predictions reveal section below.",
+      "html": "<div class=\"ds-match-card\"><div class=\"ds-match-header\"><span class=\"ds-stage-pill\">OITAVAS DE FINAL</span><div class=\"ds-match-time\"><div class=\"ds-match-date\">23 jun</div><div class=\"ds-match-hour\">15:00</div></div></div><div class=\"ds-match-body\"><div class=\"ds-team\"><span class=\"ds-team-flag\">🇧🇷</span><span class=\"ds-team-name\">Brasil</span></div><div class=\"ds-match-score\"><div class=\"ds-score-value\">2 <span class=\"ds-score-sep\">×</span> 1</div><div class=\"ds-score-label\">resultado</div></div><div class=\"ds-team ds-team-right\"><span class=\"ds-team-flag\">🇦🇷</span><span class=\"ds-team-name\">Argentina</span></div></div></div>",
+      "css": ".ds-match-card { background: var(--surface, oklch(16.5% 0.032 155)); border: 1px solid var(--border, oklch(24% 0.042 155)); border-radius: 24px; overflow: hidden; } .ds-match-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border, oklch(24% 0.042 155)); } .ds-stage-pill { display: inline-block; background: var(--raised, oklch(21% 0.042 155)); color: var(--t2, oklch(70% 0.022 155)); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 9999px; padding: 4px 12px; } .ds-match-time { text-align: right; } .ds-match-date { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: var(--t1, oklch(95% 0.008 155)); } .ds-match-hour { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: var(--t2, oklch(70% 0.022 155)); margin-top: 2px; } .ds-match-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px; } .ds-team { display: flex; flex-direction: column; gap: 4px; flex: 1; } .ds-team-right { align-items: flex-end; } .ds-team-flag { font-size: 26px; line-height: 1; } .ds-team-name { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: var(--t1, oklch(95% 0.008 155)); } .ds-match-score { display: flex; flex-direction: column; align-items: center; gap: 4px; } .ds-score-value { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 30px; font-weight: 800; color: var(--t1, oklch(95% 0.008 155)); font-variant-numeric: tabular-nums; } .ds-score-sep { color: var(--t3, oklch(46% 0.018 155)); font-weight: 300; } .ds-score-label { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--t3, oklch(46% 0.018 155)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Mesa do Bolão",
+    "overview": "A table among friends: worn at the edges, personal, contested. Ten people who know each other too well to be polite about losing. This is a shared object built for a specific group — not a product designed for strangers at scale. People open the app wanting to beat their friends. The interface holds that energy: competitive, warm, genuinely fun in the way that rivalry among people who like each other is fun.\n\nThe scene is a phone held under the glow of a television during a night game. Dark surfaces absorb ambient light and put content forward. The single yellow accent carries all the semantic weight in the system. It marks the button to press, the number that matters, the player in first place. When yellow appears, it means something.\n\nThis system refuses three failure modes: the cluttered urgency of betting apps, designed to extract money from strangers; the cold precision of American SaaS dashboards, beautiful but impersonal; and the over-animated playfulness of products built for children.",
+    "keyCharacteristics": [
+      "Dark-only; green-tinted near-blacks derived from the same hue as the accent",
+      "Single yellow accent with strict semantic discipline — never decorative",
+      "Tonal depth through four surface levels, no shadows anywhere",
+      "Numbers as the primary visual language; bold weights over large sizes",
+      "Emoji as the complete iconography system; no SVG icon library",
+      "Mobile-first at 448px max-width; desktop is bonus territory"
+    ],
+    "rules": [
+      {
+        "name": "The One Yellow Rule",
+        "body": "The accent is used for exactly one interactive or status element at a time per screen. Each additional use halves its signal value. Spread it and it becomes decoration; keep it rare and it becomes direction.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Warm-Hues Rule",
+        "body": "Verde Certo and Ao Vivo are not palette colors; they are semantic events. Verde means you were right. Ao Vivo means now, urgently. Neither appears for decoration, brand expression, or emphasis.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Not-Size Rule",
+        "body": "Hierarchy is established through weight contrast first, size second. A 700-weight 14px outranks a 400-weight 18px. Reach for a heavier weight before reaching for a larger font-size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Imperative",
+        "body": "Every score, point count, and rank number uses font-variant-numeric: tabular-nums. Column alignment is not optional when numbers are the product.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "If you are reaching for box-shadow, the answer is background: var(--raised). A tonal step communicates containment without inventing a light source.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Blur-as-Structure Rule",
+        "body": "backdrop-filter: blur is reserved for persistent UI chrome that must remain legible as content scrolls beneath — the header and bottom nav only. Not an ambient aesthetic choice.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use var(--accent) for the one interactive or status element that matters on a given screen.",
+      "Do establish hierarchy through font-weight first (400, 700, 800), font-size second.",
+      "Do apply font-variant-numeric: tabular-nums to every score, point count, and rank number.",
+      "Do keep the app container at max-width: 448px.",
+      "Do use var(--raised) as the background for disabled states and code tags.",
+      "Do use backdrop-filter: blur exclusively on persistent chrome (sticky header, fixed bottom nav).",
+      "Do honor prefers-reduced-motion: suppress animate-pulse and replace transition-all with transition-colors.",
+      "Do maintain 44px minimum touch targets on all interactive elements.",
+      "Do maintain WCAG AA contrast (4.5:1) for all text.",
+      "Do use ease-in-out at 150ms for color/opacity state transitions."
+    ],
+    "donts": [
+      "Don't replicate apps de apostas (Bet365, Sportingbet): no dense multi-column layouts, competing CTAs, neon overload.",
+      "Don't go SaaS dashboard (Linear, Vercel): cold, corporate, impersonal.",
+      "Don't animate like a children's app: no bounce, no elastic, no confetti, no over-choreographed transitions.",
+      "Don't scatter var(--accent) across decorative elements.",
+      "Don't use box-shadow. Depth is tonal. Use a var(--raised) background.",
+      "Don't add a light mode.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe.",
+      "Don't use gradient text (background-clip: text with a gradient).",
+      "Don't add external fonts.",
+      "Don't animate CSS layout properties (width, height, padding, margin, grid-template).",
+      "Don't add a hero-metric layout: big number, small label, supporting stats, gradient accent.",
+      "Don't use FIFA or Copa do Mundo official branding aesthetics."
+    ]
+  }
+}
