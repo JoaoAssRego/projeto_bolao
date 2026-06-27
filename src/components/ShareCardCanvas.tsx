@@ -13,8 +13,8 @@ interface Props {
 
 const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
   ({ match, myPred, pts, myRank, phrase, cardType }, ref) => {
-    const homeFlag = getFlag(match.home_team_code) ?? '🏴'
-    const awayFlag = getFlag(match.away_team_code) ?? '🏴'
+    const homeFlag = getFlag(match.home_team_code, match.home_team) ?? '🏴'
+    const awayFlag = getFlag(match.away_team_code, match.away_team) ?? '🏴'
 
     const ptsColor =
       pts === 10

@@ -131,7 +131,7 @@ function LockedRow({ match }: { match: Match }) {
 
 /* Flag stacked above name, used for non-edit states */
 function TeamLabel({ name, code, align }: { name: string | null; code: string | null; align: 'left' | 'right' }) {
-  const flag = getFlag(code)
+  const flag = getFlag(code, name)
   return (
     <div className={`flex-1 min-w-0 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
       <span className="text-[26px] leading-none">{flag ?? '🏴'}</span>
@@ -150,8 +150,8 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
   const [saved, setSaved] = useState(false)
 
   const canSave = home !== '' && away !== '' && !saving
-  const homeFlag = getFlag(match.home_team_code)
-  const awayFlag = getFlag(match.away_team_code)
+  const homeFlag = getFlag(match.home_team_code, match.home_team)
+  const awayFlag = getFlag(match.away_team_code, match.away_team)
 
   async function handleSave() {
     if (home === '' || away === '') return
