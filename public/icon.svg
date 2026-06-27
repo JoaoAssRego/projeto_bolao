@@ -1,7 +1,109 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="96" fill="#052e16"/>
-  <circle cx="256" cy="256" r="150" fill="#ffdf00"/>
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#009b3a" stroke-width="14"/>
-  <polygon points="256,196 298,226 282,276 230,276 214,226" fill="#002776"/>
-  <text x="256" y="430" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#ffdf00" text-anchor="middle">BOLÃO</text>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#10201a"></stop>
+      <stop offset="100%" stop-color="#040908"></stop>
+    </radialGradient>
+    <radialGradient id="bf" cx="34%" cy="28%" r="72%">
+      <stop offset="0%" stop-color="#e8ece4"></stop>
+      <stop offset="55%" stop-color="#c8ccbf"></stop>
+      <stop offset="100%" stop-color="#a4a89c"></stop>
+    </radialGradient>
+    <radialGradient id="rim" cx="50%" cy="50%" r="50%">
+      <stop offset="62%" stop-color="transparent"></stop>
+      <stop offset="100%" stop-color="#00e864" stop-opacity="0.5"></stop>
+    </radialGradient>
+    <radialGradient id="yfl" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffdf00"></stop>
+      <stop offset="100%" stop-color="#ffdf00" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="wfl" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.7"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <clipPath id="bc">
+      <circle cx="256" cy="254" r="142"></circle>
+    </clipPath>
+    <filter id="gg" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"></feGaussianBlur>
+    </filter>
+    <filter id="sg" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"></feGaussianBlur>
+    </filter>
+    <filter id="bgbloom" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="28"></feGaussianBlur>
+    </filter>
+  </defs>
+
+  
+  <rect width="512" height="512" rx="100" fill="url(#bg)"></rect>
+
+  
+  <g opacity="0.05" stroke="#00ff70" stroke-width="0.6" fill="none">
+    <path d="M80,90 l22,-13 l22,13 l0,26 l-22,13 l-22,-13 Z"></path>
+    <path d="M390,60 l18,-10 l18,10 l0,20 l-18,10 l-18,-10 Z"></path>
+    <path d="M420,380 l18,-10 l18,10 l0,20 l-18,10 l-18,-10 Z"></path>
+    <path d="M60,370 l16,-9 l16,9 l0,18 l-16,9 l-16,-9 Z"></path>
+  </g>
+
+  
+  <ellipse cx="256" cy="490" rx="255" ry="88" fill="none" stroke="#00e060" stroke-width="1.4" opacity="0.11"></ellipse>
+  <ellipse cx="256" cy="490" rx="198" ry="68" fill="none" stroke="#00e060" stroke-width="1.0" opacity="0.08"></ellipse>
+  <ellipse cx="256" cy="490" rx="144" ry="50" fill="none" stroke="#00e060" stroke-width="0.7" opacity="0.06"></ellipse>
+
+  
+  <circle cx="256" cy="254" r="170" fill="#00e060" opacity="0.11" filter="url(#bgbloom)"></circle>
+  <circle cx="256" cy="254" r="120" fill="#ffdf00" opacity="0.06" filter="url(#bgbloom)"></circle>
+
+  
+  <circle cx="256" cy="254" r="145" fill="none" stroke="#00ff6a" stroke-width="22" opacity="0.20" filter="url(#gg)"></circle>
+
+  
+  <circle cx="256" cy="254" r="142" fill="url(#bf)"></circle>
+
+  
+  <g clip-path="url(#bc)" fill="none" stroke="#00ff70" stroke-width="14" stroke-linecap="round" opacity="0.28" filter="url(#sg)">
+    <path d="M 114,254 C 170,134 342,374 398,254"></path>
+    <path d="M 327,125 C 350,248 162,260 185,383"></path>
+    <path d="M 185,125 C 162,248 350,260 327,383"></path>
+  </g>
+
+  
+  <g clip-path="url(#bc)" fill="none" stroke="#00e864" stroke-width="3.6" stroke-linecap="round">
+    <path d="M 114,254 C 170,134 342,374 398,254"></path>
+    <path d="M 327,125 C 350,248 162,260 185,383"></path>
+    <path d="M 185,125 C 162,248 350,260 327,383"></path>
+  </g>
+
+  
+  <g clip-path="url(#bc)" fill="none" stroke="#90ffcc" stroke-width="1.1" stroke-linecap="round" opacity="0.55">
+    <path d="M 114,254 C 170,134 342,374 398,254"></path>
+    <path d="M 327,125 C 350,248 162,260 185,383"></path>
+    <path d="M 185,125 C 162,248 350,260 327,383"></path>
+  </g>
+
+  
+  <ellipse cx="194" cy="188" rx="50" ry="32" fill="url(#yfl)" transform="rotate(-28 194 188)" opacity="0.78"></ellipse>
+
+  
+  <ellipse cx="208" cy="184" rx="58" ry="32" fill="url(#wfl)" transform="rotate(-18 208 184)"></ellipse>
+
+  
+  <circle cx="256" cy="254" r="142" fill="url(#rim)"></circle>
+
+  
+  <circle cx="256" cy="254" r="142" fill="none" stroke="#00e864" stroke-width="2.8"></circle>
+
+  
+  <circle cx="256" cy="254" r="149" fill="none" stroke="#ffdf00" stroke-width="2.2" opacity="0.6"></circle>
+
+  
+  <circle cx="256" cy="254" r="153" fill="none" stroke="#009b3a" stroke-width="1.2" opacity="0.4"></circle>
+
+  
+  <circle cx="256" cy="72" r="4" fill="#ffdf00" opacity="0.80"></circle>
+  <circle cx="238" cy="78" r="2.5" fill="#00e864" opacity="0.65"></circle>
+  <circle cx="274" cy="78" r="2.5" fill="#00e864" opacity="0.65"></circle>
+  <circle cx="222" cy="90" r="1.8" fill="#ffdf00" opacity="0.40"></circle>
+  <circle cx="290" cy="90" r="1.8" fill="#ffdf00" opacity="0.40"></circle>
 </svg>
