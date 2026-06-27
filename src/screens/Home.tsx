@@ -39,7 +39,21 @@ export default function Home() {
   )
 
   const leaderPoints = ranking[0]?.points ?? 0
-  const myRow = ranking.find((r) => r.participant_id === me?.id)
+  const myIndex = ranking.findIndex((r) => r.participant_id === me?.id)
+  const myRow = myIndex >= 0 ? ranking[myIndex] : undefined
+
+  // Janela enxuta: eu no centro, com quem está logo acima e logo abaixo.
+  // Nas pontas (líder ou lanterna) a janela desliza pra manter 3 linhas.
+  const windowRows = useMemo(() => {
+    if (myIndex < 0) return ranking.slice(0, 3)
+    const start = Math.min(Math.max(myIndex - 1, 0), Math.max(0, ranking.length - 3))
+    return ranking.slice(start, start + 3)
+  }, [ranking, myIndex])
+
+  const above = myIndex > 0 ? ranking[myIndex - 1] : undefined
+  const below = myIndex >= 0 && myIndex < ranking.length - 1 ? ranking[myIndex + 1] : undefined
+  const toPass = above && myRow ? above.points - myRow.points : null
+  const cushion = below && myRow ? myRow.points - below.points : null
 
   if (!me) return null
 
@@ -72,11 +86,44 @@ export default function Home() {
           )}
         </div>
 
+        {myRow && (toPass != null || cushion != null) && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--t3)]">Para subir</div>
+              {toPass == null ? (
+                <div className="mt-0.5 text-sm font-bold text-[var(--accent)]">No topo</div>
+              ) : toPass === 0 ? (
+                <div className="mt-0.5 text-sm font-semibold text-[var(--t1)]">
+                  Empate no {above!.rank}° — desempate
+                </div>
+              ) : (
+                <div className="mt-0.5 text-sm font-semibold text-[var(--t1)]">
+                  <span className="text-base font-extrabold tabular-nums">{toPass}</span> pts p/ o {above!.rank}°
+                </div>
+              )}
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--t3)]">Para manter</div>
+              {cushion == null ? (
+                <div className="mt-0.5 text-sm font-semibold text-[var(--t2)]">Sem ninguém atrás</div>
+              ) : cushion === 0 ? (
+                <div className="mt-0.5 text-sm font-semibold text-[var(--t1)]">
+                  Empate no {below!.rank}° — desempate
+                </div>
+              ) : (
+                <div className="mt-0.5 text-sm font-semibold text-[var(--t1)]">
+                  <span className="text-base font-extrabold tabular-nums">{cushion}</span> pts sobre o {below!.rank}°
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {ranking.length === 0 ? (
           <p className="py-10 text-center text-sm text-[var(--t3)]">Nenhum participante ainda.</p>
         ) : (
           <ol className="flex flex-col gap-2">
-            {ranking.map((r) => {
+            {windowRows.map((r) => {
               const isMe = r.participant_id === me.id
               return (
                 <li
