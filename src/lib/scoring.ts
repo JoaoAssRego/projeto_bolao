@@ -50,13 +50,21 @@ export interface Standing {
 /**
  * Monta a classificação geral.
  * Desempate: pontos > cravadas > acertos de resultado (depois empata mesmo).
+ *
+ * `since` (ISO timestamp): quando informado, só contam jogos cujo início (kickoff)
+ * seja a partir desse momento. Usado pelas ligas, para que todos comecem zerados
+ * a partir da criação da liga — jogos anteriores não contam.
  */
 export function buildStandings(
   participants: { id: string; name: string }[],
   matches: Match[],
   predictions: Prediction[],
+  since?: string | null,
 ): Standing[] {
-  const finished = matches.filter(hasResult)
+  const sinceTime = since ? new Date(since).getTime() : null
+  const finished = matches.filter(
+    (m) => hasResult(m) && (sinceTime == null || new Date(m.kickoff).getTime() >= sinceTime),
+  )
   const predByKey = new Map<string, Prediction>()
   for (const p of predictions) predByKey.set(`${p.participant_id}:${p.match_id}`, p)
 
