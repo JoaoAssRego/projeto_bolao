@@ -1,5 +1,5 @@
 -- ============================================================================
--- Bolão da Copa — migração: sincronismo automático de resultados via API
+-- Bolão — migração: sincronismo automático de resultados via API
 -- (football-data.org). Cole no Supabase Dashboard > SQL Editor > Run.
 -- Idempotente: pode rodar mais de uma vez.
 -- ============================================================================

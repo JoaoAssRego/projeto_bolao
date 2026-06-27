@@ -1,5 +1,5 @@
 ---
-name: Bolão da Copa
+name: Bolão
 description: Bolão de Copa do Mundo para grupo de amigos — palpites, pontuação, glória efêmera.
 colors:
   bg: "oklch(11% 0.025 155)"
@@ -84,7 +84,7 @@ components:
     padding: "12px 16px"
 ---
 
-# Design System: Bolão da Copa
+# Design System: Bolão
 
 ## 1. Overview
 
@@ -97,6 +97,7 @@ The scene is a phone held under the glow of a television during a night game. Da
 This system refuses three failure modes: the cluttered urgency of betting apps, designed to extract money from strangers (Bet365, Sportingbet); the cold precision of American SaaS dashboards, beautiful but impersonal (Linear, Vercel); and the over-animated playfulness of products built for children. What it earns instead: information with weight, competition made immediately legible, and enough specificity to feel like it belongs to this group.
 
 **Key Characteristics:**
+
 - Dark-only; green-tinted near-blacks derived from the same hue as the accent
 - Single yellow accent with strict semantic discipline — never decorative
 - Tonal depth through four surface levels, no shadows anywhere

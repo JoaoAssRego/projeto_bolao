@@ -1,5 +1,5 @@
 -- ============================================================================
--- Bolão da Copa — schema do banco (Supabase / Postgres)
+-- Bolão — schema do banco (Supabase / Postgres)
 -- Cole este arquivo inteiro no Supabase Dashboard > SQL Editor > New query > Run.
 -- Pode rodar mais de uma vez sem quebrar (usa IF NOT EXISTS / ON CONFLICT).
 -- ============================================================================

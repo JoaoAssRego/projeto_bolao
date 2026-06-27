@@ -1,6 +1,6 @@
 ---
 name: sync-resultados-api
-description: Bolão da Copa puxa resultados automaticamente da football-data.org via Edge Function + pg_cron (desvio da spec original)
+description: Bolão puxa resultados automaticamente da football-data.org via Edge Function + pg_cron (desvio da spec original)
 metadata:
   type: project
 ---

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Bolão da Copa — migração: login com senha (sem email).
+-- Bolão — migração: login com senha (sem email).
 -- Cole no Supabase Dashboard > SQL Editor > Run.
 -- Idempotente: pode rodar mais de uma vez.
 -- ============================================================================
