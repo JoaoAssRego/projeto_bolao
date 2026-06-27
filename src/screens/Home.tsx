@@ -136,18 +136,18 @@ export default function Home() {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between px-1 pt-1">
-          <div className="flex flex-col gap-0.5">
+          <div className="flex items-baseline gap-2">
             <h1 className="text-lg font-bold text-[var(--t1)]">Classificação</h1>
             {currentLeague && (
               <button
                 onClick={() => navigate('/ligas')}
-                className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] active:opacity-70"
+                className="flex items-center gap-1 text-sm font-semibold text-[var(--accent)] active:opacity-70"
               >
-                {currentLeague.name} <span className="text-[var(--t3)]">↗</span>
+                {currentLeague.name} <span className="text-xs text-[var(--t3)]">↗</span>
               </button>
             )}
           </div>
-          {myRow && (
+          {myRow && !currentLeague && (
             <span
               className={`text-xs font-semibold tabular-nums ${
                 myRow.rank === 1 ? 'text-[var(--accent)]' : 'text-[var(--t3)]'
