@@ -5,6 +5,7 @@ import { hasResult, isLocked, scoreFor } from '../lib/scoring'
 import { formatDate, formatTime } from '../lib/format'
 import { getFlag } from '../lib/countryFlags'
 import DrumPicker from './DrumPicker'
+import ShareModal from './ShareModal'
 
 interface Props {
   match: Match
@@ -22,6 +23,12 @@ export default function MatchCard({ match, me, predictions, participants, onSave
   const myPred = predictions.find((p) => p.participant_id === me.id)
   const groupLabel = match.label ?? STAGE_LABEL[match.stage]
   const warnBorder = !locked && !finished && teamsDefined && !hasPrediction
+
+  const [showShare, setShowShare] = useState(false)
+  const pts = finished && myPred != null ? (scoreFor(myPred, match) ?? null) : null
+  const shareCardType: 'pre' | 'post' = finished ? 'post' : 'pre'
+  const showShareButton =
+    (teamsDefined && !locked && (hasPrediction ?? false)) || finished
 
   return (
     <div className={`rounded-2xl border bg-[var(--surface)] overflow-hidden transition-colors ${warnBorder ? 'border-2 border-yellow-400' : 'border border-[var(--border)]'}`}>
@@ -60,6 +67,29 @@ export default function MatchCard({ match, me, predictions, participants, onSave
         <div className="border-t border-[var(--border)] px-4 py-3">
           <Revealed match={match} predictions={predictions} participants={participants} meId={me.id} />
         </div>
+      )}
+
+      {/* Share button */}
+      {showShareButton && (
+        <div className="border-t border-[var(--border)] px-4 py-3">
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--raised)] py-2.5 text-sm font-semibold text-[var(--t2)] transition-colors hover:text-[var(--t1)]"
+          >
+            <span>↗</span>
+            Compartilhar
+          </button>
+        </div>
+      )}
+
+      {showShare && (
+        <ShareModal
+          match={match}
+          myPred={myPred}
+          pts={pts}
+          cardType={shareCardType}
+          onClose={() => setShowShare(false)}
+        />
       )}
     </div>
   )
