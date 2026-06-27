@@ -391,11 +391,13 @@ Deno.serve(async () => {
       kickoff: m.utcDate,
       last_synced_at: new Date().toISOString(),
     }
+    const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
+    const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
     if (setTeams) {
-      const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
-      const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
       patch.home_team = displayTeam(homeRaw)
       patch.away_team = displayTeam(awayRaw)
+    }
+    if (hasTeams) {
       patch.home_team_code = isoCode(homeRaw)
       patch.away_team_code = isoCode(awayRaw)
     }
