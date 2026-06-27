@@ -15,7 +15,6 @@ export default function PWAInstallCard() {
     <>
       <div
         className="fixed inset-0 z-40 bg-black/50"
-        onClick={dismiss}
         aria-hidden="true"
       />
       <div
