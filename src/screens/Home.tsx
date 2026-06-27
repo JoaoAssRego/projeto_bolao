@@ -1,8 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
 import { buildStandings, withRanks, isLocked, hasResult, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
 import { initTodaySnapshot, loadPreviousSnapshot } from '../lib/rankingSnapshot'
+
+const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
 const timeFmt = new Intl.DateTimeFormat('pt-BR', {
   timeZone: 'America/Sao_Paulo',
@@ -29,20 +32,51 @@ function DeltaBadge({ delta }: { delta: number | undefined }) {
 }
 
 export default function Home() {
-  const { participants, matches, predictions, loading } = useStore()
+  const { participants, matches, predictions, loading, leagues, leagueMembers } = useStore()
   const { me } = useAuth()
+  const navigate = useNavigate()
+
+  // Liga ativa: lê do localStorage no mount, valida que o usuário ainda é membro aceito
+  const [savedLeagueId] = useState(() => localStorage.getItem(LAST_LEAGUE_KEY))
+
+  const currentLeague = useMemo(() => {
+    if (!savedLeagueId || !me) return null
+    const isMember = leagueMembers.some(
+      (m) => m.league_id === savedLeagueId && m.participant_id === me.id && m.status === 'accepted',
+    )
+    if (!isMember) return null
+    return leagues.find((l) => l.id === savedLeagueId) ?? null
+  }, [savedLeagueId, me, leagueMembers, leagues])
+
+  // Liga inválida (removido ou deletada) → limpa o storage
+  useEffect(() => {
+    if (savedLeagueId && !currentLeague && !loading) {
+      localStorage.removeItem(LAST_LEAGUE_KEY)
+    }
+  }, [savedLeagueId, currentLeague, loading])
+
+  const filteredParticipants = useMemo(() => {
+    if (!currentLeague) return participants
+    const memberIds = new Set(
+      leagueMembers
+        .filter((m) => m.league_id === currentLeague.id && m.status === 'accepted')
+        .map((m) => m.participant_id),
+    )
+    return participants.filter((p) => memberIds.has(p.id))
+  }, [currentLeague, participants, leagueMembers])
 
   const ranking = useMemo(
-    () => withRanks(buildStandings(participants, matches, predictions)),
-    [participants, matches, predictions],
+    () => withRanks(buildStandings(filteredParticipants, matches, predictions, currentLeague?.created_at)),
+    [filteredParticipants, matches, predictions, currentLeague],
   )
 
+  // Snapshot e delta apenas no modo global (snapshot salvo é sempre do ranking global)
   useEffect(() => {
-    if (loading) return
+    if (loading || currentLeague) return
     initTodaySnapshot(ranking)
-  }, [loading, ranking])
+  }, [loading, ranking, currentLeague])
 
-  const previousSnapshot = useMemo(() => loadPreviousSnapshot(), [])
+  const previousSnapshot = useMemo(() => (currentLeague ? null : loadPreviousSnapshot()), [currentLeague])
 
   const delta = useMemo(
     () => (previousSnapshot ? computeRankingDelta(ranking, previousSnapshot.entries) : new Map<string, number>()),
@@ -50,8 +84,8 @@ export default function Home() {
   )
 
   const perfectRound = useMemo(
-    () => getPerfectRoundParticipants(participants, matches, predictions),
-    [participants, matches, predictions],
+    () => getPerfectRoundParticipants(filteredParticipants, matches, predictions),
+    [filteredParticipants, matches, predictions],
   )
 
   const liveMatches = useMemo(
@@ -102,7 +136,17 @@ export default function Home() {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between px-1 pt-1">
-          <h1 className="text-lg font-bold text-[var(--t1)]">Classificação</h1>
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-lg font-bold text-[var(--t1)]">Classificação</h1>
+            {currentLeague && (
+              <button
+                onClick={() => navigate('/ligas')}
+                className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] active:opacity-70"
+              >
+                {currentLeague.name} <span className="text-[var(--t3)]">↗</span>
+              </button>
+            )}
+          </div>
           {myRow && (
             <span
               className={`text-xs font-semibold tabular-nums ${
