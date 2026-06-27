@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './data/auth'
 import { useStore } from './data/store'
+import { isLocked } from './lib/scoring'
 import Entrada from './screens/Entrada'
+import Home from './screens/Home'
 import Jogos from './screens/Jogos'
 import Ligas from './screens/Ligas'
 import MeusPalpites from './screens/MeusPalpites'
@@ -31,7 +33,8 @@ function Shell() {
       <Header />
       <main className="flex-1 px-4 pb-24 pt-2">
         <Routes>
-          <Route path="/" element={<Jogos />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/jogos" element={<Jogos />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/meus" element={<MeusPalpites />} />
           <Route path="/admin" element={me?.is_admin ? <Admin /> : <Navigate to="/" replace />} />
@@ -46,7 +49,7 @@ function Shell() {
 function Header() {
   const { me, signOut } = useAuth()
   return (
-    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.92)] px-4 py-3 backdrop-blur">
+    <header className="safe-top sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[oklch(20%_0.030_155_/_0.92)] px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-2">
         <img src="/favicon.svg" alt="" className="h-7 w-7" />
         <span className="font-bold tracking-tight text-[var(--t1)]">Bolão da Copa</span>
@@ -60,22 +63,37 @@ function Header() {
 
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const { me } = useAuth()
-  const { leagueMembers } = useStore()
+  const { leagueMembers, matches, predictions } = useStore()
 
   const pendingCount = useMemo(
     () => (me ? leagueMembers.filter(m => m.participant_id === me.id && m.status === 'pending').length : 0),
     [leagueMembers, me],
   )
 
+  const unpredictedCount = useMemo(() => {
+    if (!me) return 0
+    const brtDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+    const today = brtDay.format(new Date())
+    return matches.filter(
+      (m) =>
+        brtDay.format(new Date(m.kickoff)) === today &&
+        !isLocked(m) &&
+        m.home_team &&
+        m.away_team &&
+        !predictions.some((p) => p.match_id === m.id && p.participant_id === me.id),
+    ).length
+  }, [matches, predictions, me])
+
   const items = [
-    { to: '/', label: 'Jogos', icon: '⚽', badge: 0 },
-    { to: '/ligas', label: 'Ligas', icon: '🏆', badge: pendingCount },
+    { to: '/', label: 'Início', icon: '🏅', badge: 0 },
+    { to: '/ligas', label: 'Liga', icon: '🏆', badge: pendingCount },
+    { to: '/jogos', label: 'Jogos', icon: '⚽', badge: unpredictedCount },
     { to: '/meus', label: 'Meus', icon: '📋', badge: 0 },
   ]
   if (isAdmin) items.push({ to: '/admin', label: 'Admin', icon: '🛠️', badge: 0 })
 
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(11%_0.025_155_/_0.96)] backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md justify-around border-t border-[var(--border)] bg-[oklch(20%_0.030_155_/_0.96)] backdrop-blur">
       {items.map((it) => (
         <NavLink
           key={it.to}

@@ -161,14 +161,6 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
       {/* Save row */}
       <div className="flex items-center justify-end gap-3">
-        {!initial && (
-          <span className="text-[10px] text-[var(--t3)] flex items-center gap-1">
-            <svg width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
-              <path d="M5 1v12M5 1L2 4M5 1L8 4M5 13L2 10M5 13L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            arraste
-          </span>
-        )}
         <button
           onClick={handleSave}
           disabled={!canSave}
