@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../data/store'
-import type { NewMatch } from '../data/store'
-import { isKnockout, STAGE_LABEL, STAGE_ORDER } from '../lib/types'
-import type { Match, Stage } from '../lib/types'
+import { isKnockout } from '../lib/types'
+import type { Match } from '../lib/types'
 import { fromInputValue, toInputValue } from '../lib/format'
 import ScoreStepper from '../components/ScoreStepper'
 
 export default function Admin() {
-  const [tab, setTab] = useState<'resultados' | 'confrontos' | 'novo'>('resultados')
+  const [tab, setTab] = useState<'resultados' | 'confrontos'>('resultados')
   return (
     <div className="flex flex-col gap-3">
       <h1 className="px-1 pt-2 text-lg font-bold">Admin 🛠️</h1>
@@ -15,8 +14,7 @@ export default function Admin() {
         {(
           [
             ['resultados', 'Resultados'],
-            ['confrontos', 'Confrontos'],
-            ['novo', 'Novo jogo'],
+            ['confrontos', 'Horários'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -31,7 +29,6 @@ export default function Admin() {
 
       {tab === 'resultados' && <Resultados />}
       {tab === 'confrontos' && <Confrontos />}
-      {tab === 'novo' && <NovoJogo />}
     </div>
   )
 }
@@ -150,7 +147,7 @@ function ResultadoRow({
 // -------------------- Confrontos (times + horário) --------------------
 
 function Confrontos() {
-  const { matches, saveMatchTeams, saveKickoff } = useStore()
+  const { matches, saveKickoff } = useStore()
   const lista = useMemo(
     () => [...matches].sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()),
     [matches],
@@ -158,10 +155,10 @@ function Confrontos() {
   return (
     <div className="flex flex-col gap-2">
       <p className="px-1 text-xs text-emerald-300/50">
-        Defina os times do mata-mata conforme o chaveamento sai, e ajuste data/hora (horário de Brasília).
+        Ajuste a data e hora dos jogos (horário de Brasília).
       </p>
       {lista.map((m) => (
-        <ConfrontoRow key={m.id} match={m} onSaveTeams={saveMatchTeams} onSaveKickoff={saveKickoff} />
+        <ConfrontoRow key={m.id} match={m} onSaveKickoff={saveKickoff} />
       ))}
     </div>
   )
@@ -169,15 +166,11 @@ function Confrontos() {
 
 function ConfrontoRow({
   match,
-  onSaveTeams,
   onSaveKickoff,
 }: {
   match: Match
-  onSaveTeams: (id: string, h: string, a: string) => Promise<void>
   onSaveKickoff: (id: string, iso: string) => Promise<void>
 }) {
-  const [home, setHome] = useState(match.home_team ?? '')
-  const [away, setAway] = useState(match.away_team ?? '')
   const [when, setWhen] = useState(toInputValue(match.kickoff))
   const [busy, setBusy] = useState(false)
   const [ok, setOk] = useState(false)
@@ -185,7 +178,6 @@ function ConfrontoRow({
   async function save() {
     setBusy(true)
     try {
-      await onSaveTeams(match.id, home, away)
       await onSaveKickoff(match.id, fromInputValue(when))
       setOk(true)
       setTimeout(() => setOk(false), 1500)
@@ -196,27 +188,14 @@ function ConfrontoRow({
 
   return (
     <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-3">
-      <div className="mb-2 text-[11px] text-emerald-300/50">{match.label}</div>
-      <div className="flex items-center gap-2">
-        <input
-          value={home}
-          onChange={(e) => setHome(e.target.value)}
-          placeholder="Mandante"
-          className="min-w-0 flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-        />
-        <span className="text-emerald-600">×</span>
-        <input
-          value={away}
-          onChange={(e) => setAway(e.target.value)}
-          placeholder="Visitante"
-          className="min-w-0 flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-        />
+      <div className="mb-2 text-[11px] text-emerald-300/50">
+        {match.label} {match.home_team && match.away_team ? `· ${match.home_team} × ${match.away_team}` : ''}
       </div>
       <input
         type="datetime-local"
         value={when}
         onChange={(e) => setWhen(e.target.value)}
-        className="mt-2 w-full rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
+        className="w-full rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
       />
       <button
         onClick={save}
@@ -225,108 +204,9 @@ function ConfrontoRow({
           ok ? 'bg-canarinho-green text-white' : 'bg-emerald-800 text-white disabled:opacity-40'
         }`}
       >
-        {ok ? 'Salvo ✓' : 'Salvar confronto'}
+        {ok ? 'Salvo ✓' : 'Salvar horário'}
       </button>
     </div>
   )
 }
 
-// -------------------- Novo jogo --------------------
-
-function NovoJogo() {
-  const { createMatch } = useStore()
-  const [stage, setStage] = useState<Stage>('group')
-  const [label, setLabel] = useState('')
-  const [home, setHome] = useState('')
-  const [away, setAway] = useState('')
-  const [when, setWhen] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [ok, setOk] = useState(false)
-
-  const canSave = when !== '' && !busy
-
-  async function save() {
-    if (!when) return
-    setBusy(true)
-    try {
-      const input: NewMatch = {
-        stage,
-        label: label.trim() || STAGE_LABEL[stage],
-        home_team: home.trim() || null,
-        away_team: away.trim() || null,
-        kickoff: fromInputValue(when),
-      }
-      await createMatch(input)
-      setOk(true)
-      setHome('')
-      setAway('')
-      setLabel('')
-      setWhen('')
-      setTimeout(() => setOk(false), 1800)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-4">
-      <p className="text-xs text-emerald-300/60">
-        Use para adicionar os jogos de fase de grupos que ainda faltam (ou qualquer jogo avulso).
-      </p>
-      <label className="text-xs text-emerald-300/70">Fase</label>
-      <select
-        value={stage}
-        onChange={(e) => setStage(e.target.value as Stage)}
-        className="rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-      >
-        {STAGE_ORDER.map((s) => (
-          <option key={s} value={s}>
-            {STAGE_LABEL[s]}
-          </option>
-        ))}
-      </select>
-
-      <label className="text-xs text-emerald-300/70">Rótulo (ex: "Grupo C")</label>
-      <input
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        placeholder={STAGE_LABEL[stage]}
-        className="rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-      />
-
-      <div className="flex items-center gap-2">
-        <input
-          value={home}
-          onChange={(e) => setHome(e.target.value)}
-          placeholder="Mandante"
-          className="min-w-0 flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-        />
-        <span className="text-emerald-600">×</span>
-        <input
-          value={away}
-          onChange={(e) => setAway(e.target.value)}
-          placeholder="Visitante"
-          className="min-w-0 flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-        />
-      </div>
-
-      <label className="text-xs text-emerald-300/70">Data e hora (Brasília)</label>
-      <input
-        type="datetime-local"
-        value={when}
-        onChange={(e) => setWhen(e.target.value)}
-        className="rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
-      />
-
-      <button
-        onClick={save}
-        disabled={!canSave}
-        className={`rounded-lg py-2.5 text-sm font-bold ${
-          ok ? 'bg-canarinho-green text-white' : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
-        }`}
-      >
-        {ok ? 'Jogo criado ✓' : 'Criar jogo'}
-      </button>
-    </div>
-  )
-}

@@ -185,7 +185,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="text-xs text-[var(--t3)]">
-                      {r.exacts} cravada{r.exacts === 1 ? '' : 's'} · {r.results} resultado{r.results === 1 ? '' : 's'}
+                      {r.exacts} cravada{r.exacts === 1 ? '' : 's'} · {r.margins} saldo{r.margins === 1 ? '' : 's'} · {r.results} resultado{r.results === 1 ? '' : 's'}
                     </div>
                   </div>
                   <div className="text-right">
@@ -199,7 +199,7 @@ export default function Home() {
         )}
 
         <p className="px-1 pt-1 text-xs text-[var(--t3)]">
-          Desempate: mais cravadas → mais acertos → posição compartilhada.
+          Desempate: mais cravadas (10 pts) → mais saldos certos (7 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
         </p>
       </div>
 

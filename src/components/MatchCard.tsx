@@ -99,14 +99,14 @@ export default function MatchCard({ match, me, predictions, participants, onSave
 function FinishedRow({ match }: { match: Match }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <TeamLabel name={match.home_team} align="left" />
+      <TeamLabel name={match.home_team} code={match.home_team_code} align="left" />
       <div className="flex flex-col items-center gap-1 px-2">
         <div className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
           {match.home_score} <span className="text-[var(--t3)] font-light">×</span> {match.away_score}
         </div>
         <div className="text-[10px] uppercase tracking-widest text-[var(--t3)]">resultado</div>
       </div>
-      <TeamLabel name={match.away_team} align="right" />
+      <TeamLabel name={match.away_team} code={match.away_team_code} align="right" />
     </div>
   )
 }
@@ -115,7 +115,7 @@ function FinishedRow({ match }: { match: Match }) {
 function LockedRow({ match }: { match: Match }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <TeamLabel name={match.home_team} align="left" />
+      <TeamLabel name={match.home_team} code={match.home_team_code} align="left" />
       <div className="flex flex-col items-center gap-1.5 px-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
@@ -124,14 +124,14 @@ function LockedRow({ match }: { match: Match }) {
         </div>
         <span className="text-[10px] text-[var(--t3)]">aguardando placar</span>
       </div>
-      <TeamLabel name={match.away_team} align="right" />
+      <TeamLabel name={match.away_team} code={match.away_team_code} align="right" />
     </div>
   )
 }
 
 /* Flag stacked above name, used for non-edit states */
-function TeamLabel({ name, align }: { name: string | null; align: 'left' | 'right' }) {
-  const flag = getFlag(name)
+function TeamLabel({ name, code, align }: { name: string | null; code: string | null; align: 'left' | 'right' }) {
+  const flag = getFlag(code)
   return (
     <div className={`flex-1 min-w-0 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
       <span className="text-[26px] leading-none">{flag ?? '🏴'}</span>
@@ -150,8 +150,8 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
   const [saved, setSaved] = useState(false)
 
   const canSave = home !== '' && away !== '' && !saving
-  const homeFlag = getFlag(match.home_team)
-  const awayFlag = getFlag(match.away_team)
+  const homeFlag = getFlag(match.home_team_code)
+  const awayFlag = getFlag(match.away_team_code)
 
   async function handleSave() {
     if (home === '' || away === '') return

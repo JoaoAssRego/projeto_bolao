@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { hashPassword } from '../lib/password'
-import type { League, LeagueMember, Match, Participant, Prediction, Stage } from '../lib/types'
+import type { League, LeagueMember, Match, Participant, Prediction } from '../lib/types'
 
 // Colunas públicas de participants — NUNCA inclui password_hash nem auth_user_id.
 // has_auth existe apenas após a migration 0004 — o select falha graciosamente se
@@ -37,9 +37,7 @@ interface StoreValue {
   loginWithPassword: (name: string, password: string) => Promise<Participant>
   savePrediction: (participantId: string, matchId: string, home: number, away: number) => Promise<void>
   saveResult: (matchId: string, home: number, away: number, advancer: 'home' | 'away' | null) => Promise<void>
-  saveMatchTeams: (matchId: string, home: string, away: string) => Promise<void>
   saveKickoff: (matchId: string, kickoffIso: string) => Promise<void>
-  createMatch: (input: NewMatch) => Promise<void>
   createLeague: (name: string, creatorId: string) => Promise<League>
   deleteLeague: (leagueId: string) => Promise<void>
   inviteToLeague: (leagueId: string, participantId: string, invitedById: string) => Promise<void>
@@ -48,13 +46,6 @@ interface StoreValue {
   removeMember: (leagueId: string, participantId: string) => Promise<void>
 }
 
-export interface NewMatch {
-  stage: Stage
-  label: string
-  home_team: string | null
-  away_team: string | null
-  kickoff: string
-}
 
 const StoreContext = createContext<StoreValue | null>(null)
 
@@ -236,18 +227,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
-  const saveMatchTeams = useCallback(
-    async (matchId: string, home: string, away: string) => {
-      const { error: err } = await supabase
-        .from('matches')
-        .update({ home_team: home.trim() || null, away_team: away.trim() || null })
-        .eq('id', matchId)
-      if (err) throw err
-      await refresh()
-    },
-    [refresh],
-  )
-
   const saveKickoff = useCallback(
     async (matchId: string, kickoffIso: string) => {
       const { error: err } = await supabase.from('matches').update({ kickoff: kickoffIso }).eq('id', matchId)
@@ -255,25 +234,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await refresh()
     },
     [refresh],
-  )
-
-  const createMatch = useCallback(
-    async (input: NewMatch) => {
-      // ordering = próximo número livre dentro da fase
-      const inStage = matches.filter((m) => m.stage === input.stage)
-      const ordering = inStage.reduce((max, m) => Math.max(max, m.ordering), 0) + 1
-      const { error: err } = await supabase.from('matches').insert({
-        stage: input.stage,
-        ordering,
-        label: input.label || null,
-        home_team: input.home_team,
-        away_team: input.away_team,
-        kickoff: input.kickoff,
-      })
-      if (err) throw err
-      await refresh()
-    },
-    [matches, refresh],
   )
 
   const createLeague = useCallback(async (name: string, creatorId: string) => {
@@ -351,9 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loginWithPassword,
       savePrediction,
       saveResult,
-      saveMatchTeams,
       saveKickoff,
-      createMatch,
       createLeague,
       deleteLeague,
       inviteToLeague,
@@ -361,7 +319,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       declineInvite,
       removeMember,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveMatchTeams, saveKickoff, createMatch, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

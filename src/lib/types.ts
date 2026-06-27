@@ -29,6 +29,8 @@ export interface Match {
   label: string | null
   home_team: string | null
   away_team: string | null
+  home_team_code: string | null // ISO 3166-1 alpha-2 ou subdivisão (GBENG/GBSCT/GBWLS)
+  away_team_code: string | null
   kickoff: string // ISO timestamp
   home_score: number | null
   away_score: number | null

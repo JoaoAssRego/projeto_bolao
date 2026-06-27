@@ -94,6 +94,28 @@ const TEAMS: string[][] = [
   ['uzbekistan', 'uzbequistao', 'uzbequistão'],
   ['curacao', 'curaçao'],
   ['haiti'],
+  ['dr congo', 'congo dr', 'democratic republic of congo', 'dr. congo', 'república democrática do congo'],
+  ['mali'],
+  ['ethiopia', 'etiópia'],
+  ['guinea', 'guiné'],
+  ['mozambique', 'moçambique'],
+  ['luxembourg', 'luxemburgo'],
+  ['kosovo'],
+  ['iceland', 'islândia'],
+  ['ireland', 'irlanda'],
+  ['finland', 'finlândia'],
+  ['albania', 'albânia'],
+  ['georgia', 'geórgia'],
+  ['trinidad and tobago', 'trinidad e tobago'],
+  ['fiji'],
+  ['indonesia', 'indonésia'],
+  ['thailand', 'tailândia'],
+  ['united arab emirates', 'uae', 'emirados árabes unidos', 'emirados arabes unidos'],
+  ['bahrain', 'bahrein'],
+  ['oman', 'omã'],
+  ['kuwait'],
+  ['iraq', 'iraque'],
+  ['china'],
 ]
 
 const PT_DISPLAY: Record<string, string> = {
@@ -113,6 +135,37 @@ const PT_DISPLAY: Record<string, string> = {
   slovenia: 'Eslovênia', slovakia: 'Eslováquia', romania: 'Romênia', russia: 'Rússia',
   bolivia: 'Bolívia', venezuela: 'Venezuela', 'south africa': 'África do Sul', 'cape verde': 'Cabo Verde',
   jordan: 'Jordânia', uzbekistan: 'Uzbequistão', curacao: 'Curaçao', haiti: 'Haiti',
+  'dr congo': 'República Democrática do Congo', mali: 'Mali', ethiopia: 'Etiópia',
+  guinea: 'Guiné', mozambique: 'Moçambique', luxembourg: 'Luxemburgo', kosovo: 'Kosovo',
+  iceland: 'Islândia', ireland: 'Irlanda', finland: 'Finlândia', albania: 'Albânia',
+  georgia: 'Geórgia', 'trinidad and tobago': 'Trinidad e Tobago', fiji: 'Fiji',
+  indonesia: 'Indonésia', thailand: 'Tailândia', 'united arab emirates': 'Emirados Árabes Unidos',
+  bahrain: 'Bahrein', oman: 'Omã', kuwait: 'Kuwait', iraq: 'Iraque', china: 'China',
+}
+
+const TEAM_ISO: Record<string, string> = {
+  brazil: 'BR', argentina: 'AR', france: 'FR', england: 'GBENG',
+  spain: 'ES', portugal: 'PT', germany: 'DE', netherlands: 'NL',
+  belgium: 'BE', croatia: 'HR', italy: 'IT', uruguay: 'UY',
+  colombia: 'CO', mexico: 'MX', 'united states': 'US', canada: 'CA',
+  japan: 'JP', 'south korea': 'KR', australia: 'AU', morocco: 'MA',
+  senegal: 'SN', ghana: 'GH', nigeria: 'NG', cameroon: 'CM',
+  'ivory coast': 'CI', egypt: 'EG', tunisia: 'TN', algeria: 'DZ',
+  switzerland: 'CH', denmark: 'DK', poland: 'PL', serbia: 'RS',
+  austria: 'AT', ecuador: 'EC', peru: 'PE', chile: 'CL', paraguay: 'PY',
+  'saudi arabia': 'SA', iran: 'IR', qatar: 'QA', wales: 'GBWLS',
+  scotland: 'GBSCT', norway: 'NO', sweden: 'SE', turkey: 'TR', ukraine: 'UA',
+  'costa rica': 'CR', panama: 'PA', honduras: 'HN', jamaica: 'JM',
+  'new zealand': 'NZ', greece: 'GR', czechia: 'CZ', hungary: 'HU',
+  slovenia: 'SI', slovakia: 'SK', romania: 'RO', russia: 'RU',
+  bolivia: 'BO', venezuela: 'VE', 'south africa': 'ZA', 'cape verde': 'CV',
+  jordan: 'JO', uzbekistan: 'UZ', curacao: 'CW', haiti: 'HT',
+  'dr congo': 'CD', mali: 'ML', ethiopia: 'ET', guinea: 'GN',
+  mozambique: 'MZ', luxembourg: 'LU', kosovo: 'XK', iceland: 'IS',
+  ireland: 'IE', finland: 'FI', albania: 'AL', georgia: 'GE',
+  'trinidad and tobago': 'TT', fiji: 'FJ', indonesia: 'ID', thailand: 'TH',
+  'united arab emirates': 'AE', bahrain: 'BH', oman: 'OM', kuwait: 'KW',
+  iraq: 'IQ', china: 'CN', 'el salvador': 'SV', guatemala: 'GT', cuba: 'CU',
 }
 
 function normalizeTeam(raw: string): string {
@@ -138,6 +191,12 @@ function displayTeam(raw: string | null | undefined): string | null {
   if (!raw) return null
   const c = canonicalTeam(raw)
   return (c && PT_DISPLAY[c]) ?? raw
+}
+
+function isoCode(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const c = canonicalTeam(raw)
+  return (c && TEAM_ISO[c]) ?? null
 }
 
 // ----------------------------------------------------------------------------
@@ -308,12 +367,16 @@ Deno.serve(async () => {
       const ordering = (nextOrdering.get(stage) ?? 0) + 1
       nextOrdering.set(stage, ordering)
       const label = stage === 'group' ? groupLabel(m.group) : null
+      const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
+      const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
       const { error: insErr } = await supabase.from('matches').insert({
         stage,
         ordering,
         label,
-        home_team: displayTeam(m.homeTeam?.name ?? m.homeTeam?.shortName),
-        away_team: displayTeam(m.awayTeam?.name ?? m.awayTeam?.shortName),
+        home_team: displayTeam(homeRaw),
+        away_team: displayTeam(awayRaw),
+        home_team_code: isoCode(homeRaw),
+        away_team_code: isoCode(awayRaw),
         kickoff: m.utcDate,
         external_id: m.id,
         result_source: 'api',
@@ -329,8 +392,12 @@ Deno.serve(async () => {
       last_synced_at: new Date().toISOString(),
     }
     if (setTeams) {
-      patch.home_team = displayTeam(m.homeTeam?.name ?? m.homeTeam?.shortName)
-      patch.away_team = displayTeam(m.awayTeam?.name ?? m.awayTeam?.shortName)
+      const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
+      const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
+      patch.home_team = displayTeam(homeRaw)
+      patch.away_team = displayTeam(awayRaw)
+      patch.home_team_code = isoCode(homeRaw)
+      patch.away_team_code = isoCode(awayRaw)
     }
     if (target.external_id == null) result.vinculados++
 

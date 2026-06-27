@@ -14,6 +14,7 @@ export function hasResult(match: Match): boolean {
 /**
  * Pontuação de um palpite num jogo, segundo as regras do bolão:
  *  - 10 pts: placar exato (pênaltis ignorados para o placar).
+ *  - 7 pts: diferença de gols exata (saldo certo, não é empate).
  *  - Fase de grupos: 5 pts se acertou o resultado (vitória/empate/derrota).
  *  - Mata-mata: 5 pts se o time favorecido no palpite foi quem avançou.
  *    (palpite de empate no mata-mata não pode ganhar os 5.)
@@ -27,9 +28,14 @@ export function scoreFor(pred: Prediction | undefined, match: Match): number | n
   const exact = pred.home_score === match.home_score && pred.away_score === match.away_score
   if (exact) return 10
 
+  const predDiff = pred.home_score - pred.away_score
+  const realDiff = (match.home_score as number) - (match.away_score as number)
+  // Saldo exato: mesma margem de vitória, não serve para empate (saldo 0 = acertar resultado)
+  if (predDiff !== 0 && predDiff === realDiff) return 7
+
   if (match.stage === 'group') {
-    const predSign = Math.sign(pred.home_score - pred.away_score)
-    const realSign = Math.sign((match.home_score as number) - (match.away_score as number))
+    const predSign = Math.sign(predDiff)
+    const realSign = Math.sign(realDiff)
     return predSign === realSign ? 5 : 0
   }
 
@@ -44,13 +50,14 @@ export interface Standing {
   name: string
   points: number
   exacts: number // nº de cravadas (10 pts)
+  margins: number // nº de acertos de saldo (7 pts)
   results: number // nº de acertos de resultado (5 pts)
   played: number // jogos com resultado já lançado
 }
 
 /**
  * Monta a classificação geral.
- * Desempate: pontos > cravadas > acertos de resultado (depois empata mesmo).
+ * Desempate: pontos > cravadas > saldos > acertos de resultado (depois empata mesmo).
  *
  * `since` (ISO timestamp): quando informado, só contam jogos cujo início (kickoff)
  * seja a partir desse momento. Usado pelas ligas, para que todos comecem zerados
@@ -72,6 +79,7 @@ export function buildStandings(
   const standings = participants.map((part) => {
     let points = 0
     let exacts = 0
+    let margins = 0
     let results = 0
     let played = 0
     for (const match of finished) {
@@ -81,13 +89,19 @@ export function buildStandings(
       played++
       points += s
       if (s === 10) exacts++
+      else if (s === 7) margins++
       else if (s === 5) results++
     }
-    return { participant_id: part.id, name: part.name, points, exacts, results, played }
+    return { participant_id: part.id, name: part.name, points, exacts, margins, results, played }
   })
 
   return standings.sort(
-    (a, b) => b.points - a.points || b.exacts - a.exacts || b.results - a.results || a.name.localeCompare(b.name),
+    (a, b) =>
+      b.points - a.points ||
+      b.exacts - a.exacts ||
+      b.margins - a.margins ||
+      b.results - a.results ||
+      a.name.localeCompare(b.name),
   )
 }
 
@@ -153,7 +167,11 @@ export function withRanks(standings: Standing[]): (Standing & { rank: number })[
     let rank = i + 1
     if (i > 0) {
       const prev = standings[i - 1]
-      const tie = s.points === prev.points && s.exacts === prev.exacts && s.results === prev.results
+      const tie =
+        s.points === prev.points &&
+        s.exacts === prev.exacts &&
+        s.margins === prev.margins &&
+        s.results === prev.results
       if (tie) rank = out[i - 1].rank
     }
     out.push({ ...s, rank })

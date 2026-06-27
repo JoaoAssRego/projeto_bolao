@@ -1,107 +1,16 @@
-const FLAGS: Record<string, string> = {
-  // América do Sul
-  Brasil: '🇧🇷',
-  Argentina: '🇦🇷',
-  Uruguai: '🇺🇾',
-  Colômbia: '🇨🇴',
-  Equador: '🇪🇨',
-  Venezuela: '🇻🇪',
-  Paraguai: '🇵🇾',
-  Peru: '🇵🇪',
-  Chile: '🇨🇱',
-  Bolívia: '🇧🇴',
-
-  // Europa
-  Espanha: '🇪🇸',
-  França: '🇫🇷',
-  Alemanha: '🇩🇪',
-  Portugal: '🇵🇹',
-  Inglaterra: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  Itália: '🇮🇹',
-  'Países Baixos': '🇳🇱',
-  Holanda: '🇳🇱',
-  Bélgica: '🇧🇪',
-  Suíça: '🇨🇭',
-  Croácia: '🇭🇷',
-  Áustria: '🇦🇹',
-  Turquia: '🇹🇷',
-  Escócia: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  Hungria: '🇭🇺',
-  Romênia: '🇷🇴',
-  Eslováquia: '🇸🇰',
-  Eslovênia: '🇸🇮',
-  Albânia: '🇦🇱',
-  Geórgia: '🇬🇪',
-  'República Checa': '🇨🇿',
-  Sérvia: '🇷🇸',
-  Dinamarca: '🇩🇰',
-  Noruega: '🇳🇴',
-  Finlândia: '🇫🇮',
-  Suécia: '🇸🇪',
-  Polônia: '🇵🇱',
-  Ucrânia: '🇺🇦',
-  Grécia: '🇬🇷',
-  Irlanda: '🇮🇪',
-  'País de Gales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-  Islândia: '🇮🇸',
-  Luxemburgo: '🇱🇺',
-  Kosovo: '🇽🇰',
-
-  // África
-  Marrocos: '🇲🇦',
-  Senegal: '🇸🇳',
-  Egito: '🇪🇬',
-  Nigéria: '🇳🇬',
-  'Costa do Marfim': '🇨🇮',
-  Gana: '🇬🇭',
-  Camarões: '🇨🇲',
-  Tunísia: '🇹🇳',
-  Mali: '🇲🇱',
-  'África do Sul': '🇿🇦',
-  Etiópia: '🇪🇹',
-  Guiné: '🇬🇳',
-  'República Democrática do Congo': '🇨🇩',
-  Argélia: '🇩🇿',
-  'Cabo Verde': '🇨🇻',
-  Moçambique: '🇲🇿',
-
-  // Ásia
-  Japão: '🇯🇵',
-  'Coreia do Sul': '🇰🇷',
-  'Arábia Saudita': '🇸🇦',
-  Austrália: '🇦🇺',
-  Irã: '🇮🇷',
-  Catar: '🇶🇦',
-  China: '🇨🇳',
-  Uzbequistão: '🇺🇿',
-  Jordânia: '🇯🇴',
-  Omã: '🇴🇲',
-  Kuwait: '🇰🇼',
-  Iraque: '🇮🇶',
-  Indonésia: '🇮🇩',
-  Tailândia: '🇹🇭',
-  'Emirados Árabes Unidos': '🇦🇪',
-  Bahrein: '🇧🇭',
-
-  // América do Norte / Central / Caribe
-  'Estados Unidos': '🇺🇸',
-  México: '🇲🇽',
-  Canadá: '🇨🇦',
-  Jamaica: '🇯🇲',
-  Honduras: '🇭🇳',
-  Guatemala: '🇬🇹',
-  'El Salvador': '🇸🇻',
-  'Costa Rica': '🇨🇷',
-  Panamá: '🇵🇦',
-  'Trinidad e Tobago': '🇹🇹',
-  Cuba: '🇨🇺',
-
-  // Oceania
-  'Nova Zelândia': '🇳🇿',
-  Fiji: '🇫🇯',
+const SUBDIVISION_FLAGS: Record<string, string> = {
+  GBENG: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  GBSCT: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  GBWLS: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
 }
 
-export function getFlag(teamName: string | null): string | null {
-  if (!teamName) return null
-  return FLAGS[teamName] ?? null
+export function getFlag(isoCode: string | null | undefined): string | null {
+  if (!isoCode) return null
+  const code = isoCode.toUpperCase().trim()
+  if (SUBDIVISION_FLAGS[code]) return SUBDIVISION_FLAGS[code]
+  if (!/^[A-Z]{2}$/.test(code)) return null
+  return String.fromCodePoint(
+    0x1f1e6 + code.charCodeAt(0) - 65,
+    0x1f1e6 + code.charCodeAt(1) - 65,
+  )
 }

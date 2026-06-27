@@ -80,7 +80,7 @@ export default function Classificacao() {
                   )}
                 </div>
                 <div className="text-xs text-[var(--t3)]">
-                  {r.exacts} cravada{r.exacts === 1 ? '' : 's'} · {r.results} resultado{r.results === 1 ? '' : 's'} ·{' '}
+                  {r.exacts} cravada{r.exacts === 1 ? '' : 's'} · {r.margins} saldo{r.margins === 1 ? '' : 's'} · {r.results} resultado{r.results === 1 ? '' : 's'} ·{' '}
                   {r.played} jogo{r.played === 1 ? '' : 's'}
                 </div>
               </div>
@@ -94,7 +94,7 @@ export default function Classificacao() {
       )}
 
       <p className="px-1 pt-2 text-xs text-[var(--t3)]">
-        Desempate: mais cravadas (10 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
+        Desempate: mais cravadas (10 pts) → mais saldos certos (7 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
       </p>
     </div>
   )
