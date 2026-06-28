@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { hashPassword } from '../lib/password'
-import type { League, LeagueMember, Match, Participant, Prediction } from '../lib/types'
+import type { League, LeagueInviteLink, LeagueMember, Match, Participant, Prediction } from '../lib/types'
 
 // Colunas públicas de participants — NUNCA inclui password_hash nem auth_user_id.
 // has_auth existe apenas após a migration 0004 — o select falha graciosamente se
@@ -44,6 +44,8 @@ interface StoreValue {
   acceptInvite: (leagueId: string, participantId: string) => Promise<void>
   declineInvite: (leagueId: string, participantId: string) => Promise<void>
   removeMember: (leagueId: string, participantId: string) => Promise<void>
+  createLeagueInviteLink: (leagueId: string, createdBy: string) => Promise<LeagueInviteLink>
+  acceptInviteByToken: (token: string) => Promise<string>
 }
 
 
@@ -296,6 +298,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await refresh()
   }, [refresh])
 
+  const createLeagueInviteLink = useCallback(async (leagueId: string, createdBy: string): Promise<LeagueInviteLink> => {
+    const { data, error: err } = await supabase
+      .from('league_invite_links')
+      .insert({ league_id: leagueId, created_by: createdBy })
+      .select('*')
+      .single()
+    if (err) throw err
+    return data as LeagueInviteLink
+  }, [])
+
+  const acceptInviteByToken = useCallback(async (token: string): Promise<string> => {
+    const { data, error: err } = await supabase.rpc('accept_invite_by_token', { p_token: token })
+    if (err) throw err
+    await refresh()
+    return data as string
+  }, [refresh])
+
   const value = useMemo<StoreValue>(
     () => ({
       loading,
@@ -318,8 +337,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       acceptInvite,
       declineInvite,
       removeMember,
+      createLeagueInviteLink,
+      acceptInviteByToken,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

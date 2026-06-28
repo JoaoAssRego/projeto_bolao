@@ -3,7 +3,7 @@ import { useStore } from "../data/store";
 import { useAuth } from "../data/auth";
 import type { Participant } from "../lib/types";
 
-export default function Entrada() {
+export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}) {
   const { participants, createParticipant, loginWithPassword } = useStore();
   const { signIn } = useAuth();
   const [mode, setMode] = useState<"menu" | "novo" | "existente">("menu");
@@ -33,7 +33,7 @@ export default function Entrada() {
       const msg = e instanceof Error ? e.message : "";
       setErr(
         msg.includes("duplicate")
-          ? 'Esse nome já existe. Use "Já participo".'
+          ? 'Esse nome (ou um muito parecido) já está em uso. Tente um nome diferente.'
           : "Não consegui cadastrar. Tente de novo.",
       );
     } finally {
@@ -64,6 +64,11 @@ export default function Entrada() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6">
+      {inviteBanner && (
+        <div className="rounded-xl border border-[var(--accent-ring)] bg-[var(--accent-muted)] px-4 py-3 text-sm text-[var(--t1)]">
+          {inviteBanner}
+        </div>
+      )}
       <div className="text-center">
         <img src="/icon.svg" alt="" className="mx-auto h-20 w-20 rounded-2xl" />
         <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--t1)]">

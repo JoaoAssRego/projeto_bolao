@@ -70,3 +70,14 @@ export interface LeagueMember {
   invited_by: string
   created_at: string
 }
+
+export interface LeagueInviteLink {
+  id: string
+  league_id: string
+  created_by: string
+  expires_at: string
+  max_uses: number
+  use_count: number
+  is_revoked: boolean
+  created_at: string
+}
