@@ -5,7 +5,33 @@ import type { Match } from '../lib/types'
 import { fromInputValue, toInputValue } from '../lib/format'
 import ScoreStepper from '../components/ScoreStepper'
 import { supabase } from '../lib/supabase'
-import { getFlag } from '../lib/countryFlags'
+
+// Subset of common teams for ISO auto-fill when admin types a name
+const QUICK_ISO: Record<string, string> = {
+  brasil: 'BR', brazil: 'BR', argentina: 'AR', franca: 'FR', france: 'FR', frança: 'FR',
+  inglaterra: 'GBENG', england: 'GBENG', espanha: 'ES', spain: 'ES', portugal: 'PT',
+  alemanha: 'DE', germany: 'DE', holanda: 'NL', netherlands: 'NL', belgica: 'BE', belgium: 'BE',
+  croacia: 'HR', croatia: 'HR', italia: 'IT', italy: 'IT', uruguai: 'UY', uruguay: 'UY',
+  colombia: 'CO', mexico: 'MX', 'estados unidos': 'US', usa: 'US', canada: 'CA', canadá: 'CA',
+  japao: 'JP', japão: 'JP', japan: 'JP', 'coreia do sul': 'KR', australia: 'AU',
+  marrocos: 'MA', morocco: 'MA', senegal: 'SN', nigeria: 'NG', nigéria: 'NG',
+  paraguai: 'PY', paraguay: 'PY', equador: 'EC', ecuador: 'EC', chile: 'CL', peru: 'PE',
+  suica: 'CH', suíça: 'CH', suecia: 'SE', suécia: 'SE', dinamarca: 'DK', denmark: 'DK',
+  polonia: 'PL', polônia: 'PL', serbia: 'RS', sérvia: 'RS', turquia: 'TR', turkey: 'TR',
+  ucrania: 'UA', ucrânia: 'UA', austria: 'AT', áustria: 'AT', escocia: 'GBSCT', escócia: 'GBSCT',
+  'pais de gales': 'GBWLS', 'país de gales': 'GBWLS', wales: 'GBWLS',
+  noruega: 'NO', norway: 'NO', suica2: 'CH', hungary: 'HU', hungria: 'HU',
+  'arabia saudita': 'SA', 'arábia saudita': 'SA', iran: 'IR', irã: 'IR', catar: 'QA', qatar: 'QA',
+  camaroes: 'CM', camarões: 'CM', cameroon: 'CM', ghana: 'GH', gana: 'GH',
+  'costa do marfim': 'CI', morocco2: 'MA', 'africa do sul': 'ZA', 'áfrica do sul': 'ZA',
+  venezuela: 'VE', bolivia: 'BO', bolívia: 'BO', russia: 'RU', rússia: 'RU',
+  panama: 'PA', panamá: 'PA', honduras: 'HN', jamaica: 'JM', 'costa rica': 'CR',
+}
+
+function autoIso(name: string): string {
+  const key = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  return QUICK_ISO[key] ?? ''
+}
 
 type Tab = 'resultados' | 'confrontos' | 'sync'
 
@@ -161,7 +187,7 @@ function Confrontos() {
   return (
     <div className="flex flex-col gap-2">
       <p className="px-1 text-xs text-emerald-300/50">
-        Ajuste horário, defina confrontos pendentes ou remova slots sem uso (byes).
+        Defina confrontos pendentes, ajuste horários ou remova slots sem uso (byes).
       </p>
       {lista.map((m) => (
         <ConfrontoRow
@@ -213,10 +239,7 @@ function ConfrontoRow({
     if (!ht || !at) return
     setBusy(true)
     try {
-      // getFlag with null iso falls back to name lookup; extract just the code
-      const hc = getFlag(null, ht) ? (NAME_TO_ISO[ht.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()] ?? '') : ''
-      const ac = getFlag(null, at) ? (NAME_TO_ISO[at.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()] ?? '') : ''
-      await onSaveTeams(match.id, ht, hc, at, ac)
+      await onSaveTeams(match.id, ht, autoIso(ht), at, autoIso(at))
       setOk('times')
       setTimeout(() => setOk(null), 1500)
     } finally {
@@ -238,10 +261,12 @@ function ConfrontoRow({
     <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-3">
       <div className="mb-2 text-[11px] text-emerald-300/50">
         {match.label}
-        {match.home_team && match.away_team ? ` · ${match.home_team} × ${match.away_team}` : ' · confronto a definir'}
+        {match.home_team && match.away_team
+          ? ` · ${match.home_team} × ${match.away_team}`
+          : ' · confronto a definir'}
       </div>
 
-      {/* Edição de times (só aparece quando não definidos) */}
+      {/* Edição de times (só quando não definidos) */}
       {teamsUndefined && (
         <div className="mb-3 flex flex-col gap-2">
           <div className="flex gap-2">
@@ -250,14 +275,14 @@ function ConfrontoRow({
               placeholder="Mandante (ex: Alemanha)"
               value={homeTeam}
               onChange={(e) => setHomeTeam(e.target.value)}
-              className="flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
+              className="flex-1 min-w-0 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
             />
             <input
               type="text"
               placeholder="Visitante (ex: Paraguai)"
               value={awayTeam}
               onChange={(e) => setAwayTeam(e.target.value)}
-              className="flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
+              className="flex-1 min-w-0 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
             />
           </div>
           <div className="flex gap-2">
@@ -265,7 +290,9 @@ function ConfrontoRow({
               onClick={saveTeams}
               disabled={busy || !homeTeam.trim() || !awayTeam.trim()}
               className={`flex-1 rounded-lg py-2 text-sm font-bold ${
-                ok === 'times' ? 'bg-canarinho-green text-white' : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
+                ok === 'times'
+                  ? 'bg-canarinho-green text-white'
+                  : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
               }`}
             >
               {ok === 'times' ? 'Salvo ✓' : 'Definir confronto'}
@@ -273,11 +300,13 @@ function ConfrontoRow({
             <button
               onClick={handleDelete}
               disabled={busy}
-              className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                confirmDelete ? 'bg-red-600 text-white' : 'bg-emerald-900 text-emerald-300'
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
+                confirmDelete
+                  ? 'bg-red-600 text-white'
+                  : 'bg-emerald-900 text-emerald-300'
               }`}
             >
-              {confirmDelete ? 'Confirmar?' : 'Excluir (bye)'}
+              {confirmDelete ? 'Confirmar?' : 'Excluir'}
             </button>
           </div>
         </div>
@@ -326,8 +355,8 @@ function SyncPanel() {
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-xs text-emerald-300/50">
-        Sincroniza jogos e placares com o football-data.org. Use após o chaveamento ser anunciado para
-        preencher confrontos automaticamente.
+        Sincroniza jogos e placares com o football-data.org. Use após o chaveamento ser anunciado
+        para preencher confrontos automaticamente.
       </p>
       <button
         onClick={dispararSync}
@@ -340,7 +369,13 @@ function SyncPanel() {
               : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
         }`}
       >
-        {status === 'running' ? 'Sincronizando…' : status === 'ok' ? 'Sync concluído ✓' : status === 'error' ? 'Erro — ver log' : 'Disparar sync agora'}
+        {status === 'running'
+          ? 'Sincronizando…'
+          : status === 'ok'
+            ? 'Sync concluído ✓'
+            : status === 'error'
+              ? 'Erro — ver log abaixo'
+              : 'Disparar sync agora'}
       </button>
       {log && (
         <pre className="overflow-x-auto rounded-xl bg-emerald-950 p-3 text-[11px] text-emerald-300/70 whitespace-pre-wrap">

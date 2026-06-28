@@ -1,3 +1,4 @@
+// flag helpers
 const SUBDIVISION_FLAGS: Record<string, string> = {
   GBENG: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
   GBSCT: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
