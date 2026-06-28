@@ -270,8 +270,8 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
     if (!trimmed) return
     setLoading(true)
     setError(null)
-    // Converte a data local (YYYY-MM-DD) para início do dia em UTC
-    const startsAt = startsDate ? new Date(`${startsDate}T00:00:00`).toISOString() : null
+    // Meia-noite no fuso de Brasília (UTC-3) = 03:00 UTC
+    const startsAt = startsDate ? `${startsDate}T03:00:00Z` : null
     try {
       await onCreate(trimmed, startsAt)
     } catch (e: unknown) {
@@ -360,7 +360,7 @@ function ManageLeagueModal({
     setSavingDate(true)
     setDateMsg(null)
     try {
-      await updateLeagueStartsAt(leagueId, new Date(`${startsDate}T00:00:00`).toISOString())
+      await updateLeagueStartsAt(leagueId, `${startsDate}T03:00:00Z`)
       setDateMsg({ text: 'Data salva!', ok: true })
     } catch {
       setDateMsg({ text: 'Erro ao salvar data.', ok: false })
