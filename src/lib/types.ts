@@ -66,7 +66,7 @@ export interface LeagueMember {
   id: string
   league_id: string
   participant_id: string
-  status: 'pending' | 'accepted'
+  status: 'pending' | 'requested' | 'accepted'
   invited_by: string
   created_at: string
 }

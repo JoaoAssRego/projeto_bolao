@@ -178,6 +178,7 @@ export default function Ligas() {
           onClose={() => setManageLeagueId(null)}
           onDeleted={() => { selectLeague(null); setManageLeagueId(null) }}
           inviteToLeague={inviteToLeague}
+          acceptInvite={acceptInvite}
           removeMember={removeMember}
           deleteLeague={deleteLeague}
         />
@@ -278,12 +279,13 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
 // ── Modal: Gerenciar liga ──────────────────────────────────────────────────────
 
 function ManageLeagueModal({
-  leagueId, onClose, onDeleted, inviteToLeague, removeMember, deleteLeague,
+  leagueId, onClose, onDeleted, inviteToLeague, acceptInvite, removeMember, deleteLeague,
 }: {
   leagueId: string
   onClose: () => void
   onDeleted: () => void
   inviteToLeague: (leagueId: string, participantId: string, invitedById: string) => Promise<void>
+  acceptInvite: (leagueId: string, participantId: string) => Promise<void>
   removeMember: (leagueId: string, participantId: string) => Promise<void>
   deleteLeague: (leagueId: string) => Promise<void>
 }) {
@@ -301,6 +303,7 @@ function ManageLeagueModal({
   const isCreator = me?.id === league.creator_id
   const accepted = leagueMembers.filter(m => m.league_id === leagueId && m.status === 'accepted')
   const pending = leagueMembers.filter(m => m.league_id === leagueId && m.status === 'pending')
+  const requested = leagueMembers.filter(m => m.league_id === leagueId && m.status === 'requested')
 
   function getName(id: string) {
     return participants.find(p => p.id === id)?.name ?? '—'
@@ -426,10 +429,43 @@ function ManageLeagueModal({
           )}
         </div>
 
-        {/* Convites pendentes */}
+        {/* Pedidos de entrada via link (só criador vê) */}
+        {isCreator && requested.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-[var(--t2)]">
+              Pedidos de entrada
+              <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--accent-fg)]">
+                {requested.length}
+              </span>
+            </span>
+            <ul className="flex flex-col gap-1.5">
+              {requested.map(m => (
+                <li key={m.id} className="flex items-center justify-between rounded-lg border border-[var(--accent-ring)] bg-[var(--accent-muted)] px-3 py-2">
+                  <span className="text-sm font-medium text-[var(--t1)]">{getName(m.participant_id)}</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => void acceptInvite(leagueId, m.participant_id)}
+                      className="text-xs font-semibold text-[var(--accent)] active:opacity-70"
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      onClick={() => void removeMember(leagueId, m.participant_id)}
+                      className="text-xs text-red-400 active:opacity-70"
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Convites pendentes (enviados pelo criador, aguardando o convidado aceitar) */}
         {pending.length > 0 && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-[var(--t2)]">Convites pendentes</span>
+            <span className="text-xs font-medium text-[var(--t2)]">Convites enviados</span>
             <ul className="flex flex-col gap-1.5">
               {pending.map(m => (
                 <li key={m.id} className="flex items-center justify-between rounded-lg bg-[var(--raised)] px-3 py-2">
