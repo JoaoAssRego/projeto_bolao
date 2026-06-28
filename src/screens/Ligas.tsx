@@ -32,6 +32,19 @@ export default function Ligas() {
     return leagueMembers.filter(m => m.participant_id === me.id && m.status === 'pending')
   }, [leagueMembers, me])
 
+  // Pedidos de entrada pendentes por liga (onde sou criador)
+  const requestsByLeague = useMemo(() => {
+    if (!me) return new Map<string, number>()
+    const creatorLeagueIds = new Set(leagues.filter(l => l.creator_id === me.id).map(l => l.id))
+    const map = new Map<string, number>()
+    for (const m of leagueMembers) {
+      if (m.status === 'requested' && creatorLeagueIds.has(m.league_id)) {
+        map.set(m.league_id, (map.get(m.league_id) ?? 0) + 1)
+      }
+    }
+    return map
+  }, [leagues, leagueMembers, me])
+
   // Liga selecionada ainda precisa existir nas minhas ligas
   const currentLeagueId = selectedLeagueId && myLeagues.find(l => l.id === selectedLeagueId)
     ? selectedLeagueId
@@ -93,7 +106,7 @@ export default function Ligas() {
       <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         <Tab active={!currentLeagueId} onClick={() => selectLeague(null)}>Global</Tab>
         {myLeagues.map(league => (
-          <Tab key={league.id} active={currentLeagueId === league.id} onClick={() => selectLeague(league.id)}>
+          <Tab key={league.id} active={currentLeagueId === league.id} onClick={() => selectLeague(league.id)} badge={requestsByLeague.get(league.id)}>
             {league.name}
           </Tab>
         ))}
@@ -107,8 +120,13 @@ export default function Ligas() {
           </span>
           <button
             onClick={() => setManageLeagueId(selectedLeague.id)}
-            className="text-xs font-medium text-[var(--accent)] active:opacity-70"
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] active:opacity-70"
           >
+            {(requestsByLeague.get(selectedLeague.id) ?? 0) > 0 && (
+              <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                {requestsByLeague.get(selectedLeague.id)}
+              </span>
+            )}
             Gerenciar
           </button>
         </div>
@@ -196,17 +214,22 @@ export default function Ligas() {
 
 // ── Componentes auxiliares ─────────────────────────────────────────────────────
 
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+function Tab({ active, onClick, children, badge }: { active: boolean; onClick: () => void; children: ReactNode; badge?: number }) {
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+      className={`relative shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
         active
           ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
           : 'bg-[var(--raised)] text-[var(--t2)] active:bg-[var(--border)]'
       }`}
     >
       {children}
+      {badge && badge > 0 ? (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      ) : null}
     </button>
   )
 }

@@ -1,12 +1,29 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
 import { hasResult, isLocked, scoreFor } from '../lib/scoring'
 import { formatKickoff } from '../lib/format'
 
 export default function MeusPalpites() {
-  const { matches, predictions } = useStore()
+  const { matches, predictions, leagues, leagueMembers } = useStore()
   const { me } = useAuth()
+
+  const myLeagues = useMemo(() => {
+    if (!me) return []
+    return leagues.filter((l) =>
+      leagueMembers.some(
+        (m) => m.league_id === l.id && m.participant_id === me.id && m.status === 'accepted',
+      ),
+    )
+  }, [leagues, leagueMembers, me])
+
+  // null = geral (todos os palpites)
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
+
+  const selectedLeague = useMemo(
+    () => (selectedLeagueId ? (myLeagues.find((l) => l.id === selectedLeagueId) ?? null) : null),
+    [selectedLeagueId, myLeagues],
+  )
 
   const rows = useMemo(() => {
     if (!me) return []
@@ -17,8 +34,12 @@ export default function MeusPalpites() {
         return match ? { pred, match, pts: scoreFor(pred, match) } : null
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
+      .filter(({ match }) => {
+        if (!selectedLeague) return true
+        return new Date(match.kickoff) >= new Date(selectedLeague.created_at)
+      })
       .sort((a, b) => new Date(b.match.kickoff).getTime() - new Date(a.match.kickoff).getTime())
-  }, [matches, predictions, me])
+  }, [matches, predictions, me, selectedLeague])
 
   const total = rows.reduce((sum, r) => sum + (r.pts ?? 0), 0)
 
@@ -34,9 +55,29 @@ export default function MeusPalpites() {
         </div>
       </div>
 
+      {myLeagues.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Pill
+            label="Geral"
+            active={selectedLeagueId === null}
+            onClick={() => setSelectedLeagueId(null)}
+          />
+          {myLeagues.map((l) => (
+            <Pill
+              key={l.id}
+              label={l.name}
+              active={selectedLeagueId === l.id}
+              onClick={() => setSelectedLeagueId(l.id)}
+            />
+          ))}
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <p className="py-10 text-center text-sm text-[var(--t3)]">
-          Você ainda não palpitou em nenhum jogo. Vá na aba Jogos!
+          {selectedLeague
+            ? `Nenhum palpite desde a criação de "${selectedLeague.name}".`
+            : 'Você ainda não palpitou em nenhum jogo. Vá na aba Jogos!'}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -77,6 +118,21 @@ export default function MeusPalpites() {
         </ul>
       )}
     </div>
+  )
+}
+
+function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+        active
+          ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
+          : 'bg-[var(--raised)] text-[var(--t2)] active:opacity-70'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
 
