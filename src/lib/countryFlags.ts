@@ -123,6 +123,10 @@ function isoFromName(name: string | null | undefined): string | null {
   return NAME_TO_ISO[normalize(name)] ?? null
 }
 
+export function getIsoFromName(name: string | null | undefined): string | null {
+  return isoFromName(name)
+}
+
 function emojiFromIso(code: string): string | null {
   const upper = code.toUpperCase()
   if (SUBDIVISION_FLAGS[upper]) return SUBDIVISION_FLAGS[upper]

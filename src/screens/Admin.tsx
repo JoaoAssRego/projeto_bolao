@@ -4,9 +4,13 @@ import { isKnockout } from '../lib/types'
 import type { Match } from '../lib/types'
 import { fromInputValue, toInputValue } from '../lib/format'
 import ScoreStepper from '../components/ScoreStepper'
+import { supabase } from '../lib/supabase'
+import { getFlag } from '../lib/countryFlags'
+
+type Tab = 'resultados' | 'confrontos' | 'sync'
 
 export default function Admin() {
-  const [tab, setTab] = useState<'resultados' | 'confrontos'>('resultados')
+  const [tab, setTab] = useState<Tab>('resultados')
   return (
     <div className="flex flex-col gap-3">
       <h1 className="px-1 pt-2 text-lg font-bold">Admin 🛠️</h1>
@@ -15,7 +19,8 @@ export default function Admin() {
           [
             ['resultados', 'Resultados'],
             ['confrontos', 'Horários'],
-          ] as const
+            ['sync', 'Sync'],
+          ] as [Tab, string][]
         ).map(([key, label]) => (
           <button
             key={key}
@@ -29,6 +34,7 @@ export default function Admin() {
 
       {tab === 'resultados' && <Resultados />}
       {tab === 'confrontos' && <Confrontos />}
+      {tab === 'sync' && <SyncPanel />}
     </div>
   )
 }
@@ -147,7 +153,7 @@ function ResultadoRow({
 // -------------------- Confrontos (times + horário) --------------------
 
 function Confrontos() {
-  const { matches, saveKickoff } = useStore()
+  const { matches, saveKickoff, saveTeams, deleteMatch } = useStore()
   const lista = useMemo(
     () => [...matches].sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()),
     [matches],
@@ -155,10 +161,16 @@ function Confrontos() {
   return (
     <div className="flex flex-col gap-2">
       <p className="px-1 text-xs text-emerald-300/50">
-        Ajuste a data e hora dos jogos (horário de Brasília).
+        Ajuste horário, defina confrontos pendentes ou remova slots sem uso (byes).
       </p>
       {lista.map((m) => (
-        <ConfrontoRow key={m.id} match={m} onSaveKickoff={saveKickoff} />
+        <ConfrontoRow
+          key={m.id}
+          match={m}
+          onSaveKickoff={saveKickoff}
+          onSaveTeams={saveTeams}
+          onDelete={deleteMatch}
+        />
       ))}
     </div>
   )
@@ -167,20 +179,56 @@ function Confrontos() {
 function ConfrontoRow({
   match,
   onSaveKickoff,
+  onSaveTeams,
+  onDelete,
 }: {
   match: Match
   onSaveKickoff: (id: string, iso: string) => Promise<void>
+  onSaveTeams: (id: string, ht: string, hc: string, at: string, ac: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }) {
   const [when, setWhen] = useState(toInputValue(match.kickoff))
+  const [homeTeam, setHomeTeam] = useState(match.home_team ?? '')
+  const [awayTeam, setAwayTeam] = useState(match.away_team ?? '')
   const [busy, setBusy] = useState(false)
-  const [ok, setOk] = useState(false)
+  const [ok, setOk] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
-  async function save() {
+  const teamsUndefined = !match.home_team || !match.away_team
+
+  async function saveKickoff() {
     setBusy(true)
     try {
       await onSaveKickoff(match.id, fromInputValue(when))
-      setOk(true)
-      setTimeout(() => setOk(false), 1500)
+      setOk('horário')
+      setTimeout(() => setOk(null), 1500)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveTeams() {
+    const ht = homeTeam.trim()
+    const at = awayTeam.trim()
+    if (!ht || !at) return
+    setBusy(true)
+    try {
+      // getFlag with null iso falls back to name lookup; extract just the code
+      const hc = getFlag(null, ht) ? (NAME_TO_ISO[ht.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()] ?? '') : ''
+      const ac = getFlag(null, at) ? (NAME_TO_ISO[at.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()] ?? '') : ''
+      await onSaveTeams(match.id, ht, hc, at, ac)
+      setOk('times')
+      setTimeout(() => setOk(null), 1500)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    setBusy(true)
+    try {
+      await onDelete(match.id)
     } finally {
       setBusy(false)
     }
@@ -189,8 +237,53 @@ function ConfrontoRow({
   return (
     <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-3">
       <div className="mb-2 text-[11px] text-emerald-300/50">
-        {match.label} {match.home_team && match.away_team ? `· ${match.home_team} × ${match.away_team}` : ''}
+        {match.label}
+        {match.home_team && match.away_team ? ` · ${match.home_team} × ${match.away_team}` : ' · confronto a definir'}
       </div>
+
+      {/* Edição de times (só aparece quando não definidos) */}
+      {teamsUndefined && (
+        <div className="mb-3 flex flex-col gap-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Mandante (ex: Alemanha)"
+              value={homeTeam}
+              onChange={(e) => setHomeTeam(e.target.value)}
+              className="flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
+            />
+            <input
+              type="text"
+              placeholder="Visitante (ex: Paraguai)"
+              value={awayTeam}
+              onChange={(e) => setAwayTeam(e.target.value)}
+              className="flex-1 rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={saveTeams}
+              disabled={busy || !homeTeam.trim() || !awayTeam.trim()}
+              className={`flex-1 rounded-lg py-2 text-sm font-bold ${
+                ok === 'times' ? 'bg-canarinho-green text-white' : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
+              }`}
+            >
+              {ok === 'times' ? 'Salvo ✓' : 'Definir confronto'}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={busy}
+              className={`rounded-lg px-3 py-2 text-sm font-bold ${
+                confirmDelete ? 'bg-red-600 text-white' : 'bg-emerald-900 text-emerald-300'
+              }`}
+            >
+              {confirmDelete ? 'Confirmar?' : 'Excluir (bye)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edição de horário */}
       <input
         type="datetime-local"
         value={when}
@@ -198,15 +291,62 @@ function ConfrontoRow({
         className="w-full rounded-lg bg-emerald-950 px-2 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600"
       />
       <button
-        onClick={save}
+        onClick={saveKickoff}
         disabled={busy}
         className={`mt-2 w-full rounded-lg py-2 text-sm font-bold ${
-          ok ? 'bg-canarinho-green text-white' : 'bg-emerald-800 text-white disabled:opacity-40'
+          ok === 'horário' ? 'bg-canarinho-green text-white' : 'bg-emerald-800 text-white disabled:opacity-40'
         }`}
       >
-        {ok ? 'Salvo ✓' : 'Salvar horário'}
+        {ok === 'horário' ? 'Salvo ✓' : 'Salvar horário'}
       </button>
     </div>
   )
 }
 
+// -------------------- Sync --------------------
+
+function SyncPanel() {
+  const [status, setStatus] = useState<'idle' | 'running' | 'ok' | 'error'>('idle')
+  const [log, setLog] = useState<string | null>(null)
+
+  async function dispararSync() {
+    setStatus('running')
+    setLog(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-resultados')
+      if (error) throw error
+      setStatus('ok')
+      setLog(JSON.stringify(data, null, 2))
+    } catch (e: unknown) {
+      setStatus('error')
+      setLog(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="px-1 text-xs text-emerald-300/50">
+        Sincroniza jogos e placares com o football-data.org. Use após o chaveamento ser anunciado para
+        preencher confrontos automaticamente.
+      </p>
+      <button
+        onClick={dispararSync}
+        disabled={status === 'running'}
+        className={`w-full rounded-xl py-3 text-sm font-bold ${
+          status === 'ok'
+            ? 'bg-canarinho-green text-white'
+            : status === 'error'
+              ? 'bg-red-600 text-white'
+              : 'bg-canarinho-yellow text-emerald-950 disabled:opacity-40'
+        }`}
+      >
+        {status === 'running' ? 'Sincronizando…' : status === 'ok' ? 'Sync concluído ✓' : status === 'error' ? 'Erro — ver log' : 'Disparar sync agora'}
+      </button>
+      {log && (
+        <pre className="overflow-x-auto rounded-xl bg-emerald-950 p-3 text-[11px] text-emerald-300/70 whitespace-pre-wrap">
+          {log}
+        </pre>
+      )}
+    </div>
+  )
+}

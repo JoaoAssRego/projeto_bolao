@@ -148,6 +148,7 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
   const [away, setAway] = useState<number | ''>(initial ? initial.away_score : 0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isEditing, setIsEditing] = useState(!initial)
 
   const canSave = home !== '' && away !== '' && !saving
   const homeFlag = getFlag(match.home_team_code, match.home_team)
@@ -159,10 +160,17 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
     try {
       await onSave(Number(home), Number(away))
       setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
+      setTimeout(() => {
+        setSaved(false)
+        setIsEditing(false)
+      }, 1800)
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleEdit() {
+    setIsEditing(true)
   }
 
   return (
@@ -177,9 +185,9 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
         {/* Score drums — fixed center */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" />
+          <DrumPicker value={home} onChange={setHome} ariaLabel="gols mandante" disabled={!isEditing} />
           <span className="text-[var(--t3)] text-lg">×</span>
-          <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" />
+          <DrumPicker value={away} onChange={setAway} ariaLabel="gols visitante" disabled={!isEditing} />
         </div>
 
         {/* Away team */}
@@ -191,17 +199,26 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
       {/* Save row */}
       <div className="flex items-center justify-end gap-3">
-        <button
-          onClick={handleSave}
-          disabled={!canSave}
-          className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
-            saved
-              ? 'bg-[var(--ok)] text-[var(--ok-fg)]'
-              : 'bg-[var(--accent)] text-[var(--accent-fg)] disabled:bg-[var(--raised)] disabled:text-[var(--t3)]'
-          }`}
-        >
-          {saved ? 'Salvo ✓' : initial ? 'Editar' : 'Palpitar'}
-        </button>
+        {isEditing ? (
+          <button
+            onClick={handleSave}
+            disabled={!canSave}
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${
+              saved
+                ? 'bg-[var(--ok)] text-[var(--ok-fg)]'
+                : 'bg-[var(--accent)] text-[var(--accent-fg)] disabled:bg-[var(--raised)] disabled:text-[var(--t3)]'
+            }`}
+          >
+            {saved ? 'Salvo ✓' : 'Palpitar'}
+          </button>
+        ) : (
+          <button
+            onClick={handleEdit}
+            className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all bg-[var(--raised)] text-[var(--t2)] hover:text-[var(--t1)]"
+          >
+            Editar
+          </button>
+        )}
       </div>
     </div>
   )

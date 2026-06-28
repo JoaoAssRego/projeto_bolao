@@ -38,6 +38,8 @@ interface StoreValue {
   savePrediction: (participantId: string, matchId: string, home: number, away: number) => Promise<void>
   saveResult: (matchId: string, home: number, away: number, advancer: 'home' | 'away' | null) => Promise<void>
   saveKickoff: (matchId: string, kickoffIso: string) => Promise<void>
+  saveTeams: (matchId: string, homeTeam: string, homeCode: string, awayTeam: string, awayCode: string) => Promise<void>
+  deleteMatch: (matchId: string) => Promise<void>
   createLeague: (name: string, creatorId: string, startsAt?: string | null) => Promise<League>
   updateLeagueStartsAt: (leagueId: string, startsAt: string | null) => Promise<void>
   deleteLeague: (leagueId: string) => Promise<void>
@@ -239,6 +241,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const saveTeams = useCallback(
+    async (matchId: string, homeTeam: string, homeCode: string, awayTeam: string, awayCode: string) => {
+      const { error: err } = await supabase
+        .from('matches')
+        .update({ home_team: homeTeam, home_team_code: homeCode || null, away_team: awayTeam, away_team_code: awayCode || null })
+        .eq('id', matchId)
+      if (err) throw err
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteMatch = useCallback(
+    async (matchId: string) => {
+      const { error: err } = await supabase.from('matches').delete().eq('id', matchId)
+      if (err) throw err
+      await refresh()
+    },
+    [refresh],
+  )
+
   const createLeague = useCallback(async (name: string, creatorId: string, startsAt?: string | null) => {
     const { data, error: err } = await supabase
       .from('leagues')
@@ -341,6 +364,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       savePrediction,
       saveResult,
       saveKickoff,
+      saveTeams,
+      deleteMatch,
       createLeague,
       updateLeagueStartsAt,
       deleteLeague,
@@ -351,7 +376,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createLeagueInviteLink,
       acceptInviteByToken,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, saveTeams, deleteMatch, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
