@@ -76,7 +76,7 @@ function Header() {
 
   return (
     <header
-      className={`safe-top sticky top-0 z-10 flex items-center justify-between bg-[var(--bg)] px-4 py-3.5 backdrop-blur-md transition-colors duration-200 ${
+      className={`safe-top sticky top-0 z-10 flex items-center justify-between bg-[var(--bg)] px-4 pb-3.5 backdrop-blur-md transition-colors duration-200 ${
         scrolled ? "border-b border-[var(--border)]" : "border-b border-transparent"
       }`}
     >
