@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
 import { buildStandings, withRanks, isLocked, hasResult, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
-import { initTodaySnapshot, loadPreviousSnapshot } from '../lib/rankingSnapshot'
+import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
+import type { SnapshotEntry } from '../lib/rankingSnapshot'
 
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
@@ -21,7 +22,7 @@ const shortDateFmt = new Intl.DateTimeFormat('pt-BR', {
 
 function DeltaBadge({ delta }: { delta: number | undefined }) {
   if (delta == null) return null
-  if (delta === 0) return <span className="text-xs font-semibold text-[var(--t3)]">—</span>
+  if (delta === 0) return null
   if (delta > 0)
     return (
       <span className="tabular-nums text-xs font-bold text-[oklch(62%_0.18_145)]">↑{delta}</span>
@@ -66,21 +67,30 @@ export default function Home() {
   }, [currentLeague, participants, leagueMembers])
 
   const ranking = useMemo(
-    () => withRanks(buildStandings(filteredParticipants, matches, predictions, currentLeague?.created_at)),
+    () => withRanks(buildStandings(filteredParticipants, matches, predictions, currentLeague ? (currentLeague.starts_at ?? currentLeague.created_at) : undefined)),
     [filteredParticipants, matches, predictions, currentLeague],
   )
 
-  // Snapshot e delta apenas no modo global (snapshot salvo é sempre do ranking global)
+  // Snapshot de hoje como baseline do delta.
+  // Cada contexto (global ou liga) tem sua própria chave no localStorage.
+  // Efeito 1: salva o snapshot quando os dados chegam (idempotente por dia por contexto).
+  // Efeito 2: carrega o snapshot para o estado quando o contexto muda.
+  // Ordem de declaração garante que o 1 salva antes do 2 carregar.
+  const [todaySnapshot, setTodaySnapshot] = useState<SnapshotEntry[] | null>(null)
+
   useEffect(() => {
-    if (loading || currentLeague) return
-    initTodaySnapshot(ranking)
+    if (loading || ranking.length === 0) return
+    initTodaySnapshot(ranking, currentLeague?.id)
   }, [loading, ranking, currentLeague])
 
-  const previousSnapshot = useMemo(() => (currentLeague ? null : loadPreviousSnapshot()), [currentLeague])
+  useEffect(() => {
+    if (loading) return
+    setTodaySnapshot(loadTodaySnapshot(currentLeague?.id))
+  }, [loading, currentLeague])
 
   const delta = useMemo(
-    () => (previousSnapshot ? computeRankingDelta(ranking, previousSnapshot.entries) : new Map<string, number>()),
-    [ranking, previousSnapshot],
+    () => (todaySnapshot ? computeRankingDelta(ranking, todaySnapshot) : new Map<string, number>()),
+    [ranking, todaySnapshot],
   )
 
   const perfectRound = useMemo(

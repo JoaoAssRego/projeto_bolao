@@ -3,8 +3,8 @@ export type Stage = 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
 export const STAGE_LABEL: Record<Stage, string> = {
   group: 'Fase de grupos',
   r32: '32-avos de final',
-  r16: 'Oitavas de final',
-  qf: 'Quartas de final',
+  r16: '16-avos de final',
+  qf: 'Oitavas de final',
   sf: 'Semifinal',
   third: 'Disputa de 3º lugar',
   final: 'Final',

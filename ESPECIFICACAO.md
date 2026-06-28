@@ -1,45 +1,45 @@
 # Bolão — Especificação (entendimento compartilhado)
 
-> Documento gerado a partir da sessão de grilling em 2026-06-21. Base para a construção.
+> Documento atualizado em 2026-06-28. Reflete o estado atual do produto após a fase de grupos da Copa 2026.
 
 ## Visão geral
 
-PWA focada em celular para um Bolão do Mundo de 2026, usada por ~10 amigos. Sem login tradicional. Resultados lançados manualmente por um admin. Deve ir ao ar rápido — a Copa já está em andamento (fase de grupos, ~21/jun).
+PWA focada em celular para um Bolão do Mundo de 2026, com ~30 participantes ativos, todos brasileiros. Acesso por nome + senha. Resultados chegam automaticamente via API, com o admin como fallback. Sistema de ligas permite subgrupos competirem entre si dentro do bolão global.
 
 ## Mecânica de aposta e pontuação
 
 - Cada participante palpita o **placar** de cada jogo (ex: 2x1).
-- Pontuação por jogo: **10 / 5 / 0**
+- Pontuação por jogo: **10 / 7 / 5 / 0**
   - **10 pts** — placar exato.
-  - **5 pts** — errou o placar mas acertou o resultado.
-  - **0 pts** — errou tudo.
+  - **7 pts** — acertou o resultado e o saldo de gols, mas não o placar exato (ex: palpitou 2×0, terminou 4×2).
+  - **5 pts** — acertou o resultado (quem ganhou/perdeu/empatou), mas errou o saldo.
+  - **0 pts** — errou o resultado.
 
-### Regra do mata-mata (eliminatórias)
+### Regra unificada para todos os jogos (incluindo mata-mata)
 
-O palpite continua sendo um placar. Para jogos de mata-mata:
+A pontuação é sempre calculada sobre o **placar do tempo normal**. Prorrogação e pênaltis são ignorados.
 
-- **10 pts** — placar exato bate com o placar do tempo normal/prorrogação (**pênaltis ignorados para o placar**). Ex: palpitou 1x1, terminou 1x1 e foi pra pênaltis → 10 pts.
-- **5 pts** — não acertou o placar, mas **o time favorecido no palpite foi quem avançou** (inclusive via pênaltis). Ex: palpitou "Brasil 2x1", terminou "1x1, Brasil nos pênaltis" → 5 pts.
-- **0 pts** — errou o placar e o time favorecido não avançou.
-- Palpite de **empate** no mata-mata só pode dar **10 ou 0** (não aponta ninguém para avançar).
-- Na fase de grupos o empate é resultado válido (10/5/0 normal).
+- Se o jogo foi para pênaltis após empate no tempo normal: quem palpitou empate ganha 5 pts. Quem palpitou vitória de qualquer time ganha 0 pts.
+- Não existe bônus por acertar o time que avança via pênaltis.
 
 ### Desempate no ranking
 
-1. Mais placares exatos (cravadas de 10).
-2. Mais acertos de resultado.
-3. Se ainda empatar → posição compartilhada.
+1. Mais placares exatos (cravadas de 10 pts).
+2. Mais saldos certos (7 pts).
+3. Mais acertos de resultado (5 pts).
+4. Se ainda empatar → posição compartilhada.
 
 ## Recorte de jogos
 
-- Valem **todos os jogos restantes** a partir do próximo disponível (fim da fase de grupos + todo o mata-mata).
-- Jogos já ocorridos ficam de fora (não dá pra palpitar no passado).
+- Valem todos os jogos da Copa 2026.
+- Não é possível palpitar em jogos já encerrados.
 
 ## Dados (jogos e resultados)
 
-- Tabela de jogos importada **uma única vez** de fonte pública (montada na construção), em **horário de Brasília (UTC-3)**.
-- Jogos de mata-mata entram com times "a definir"; o admin preenche os confrontos conforme o chaveamento sai.
-- **Resultados lançados manualmente pelo admin.** Sem API ao vivo.
+- A tabela de jogos é sincronizada automaticamente com a API da **football-data.org** a cada 30 minutos — times, horários e placares chegam sem intervenção do admin.
+- O admin pode lançar ou corrigir resultados manualmente. Entradas manuais nunca são sobrescritas pela API.
+- Jogos de mata-mata entram com times "a definir"; o admin preenche os confrontos conforme o chaveamento é publicado.
+- Todos os horários em **horário de Brasília (UTC-3)**.
 
 ## Travamento e palpites
 
@@ -47,45 +47,66 @@ O palpite continua sendo um placar. Para jogos de mata-mata:
 - **Quem não palpitou a tempo → 0 pts** naquele jogo. Sem palpite tardio.
 - Palpites **ocultos até o jogo travar**; depois de travar, **todos veem** o palpite de todos.
 
-## Identidade e acesso (sem login)
+## Identidade e acesso
 
 - **Um link compartilhado** no grupo.
-- Tela de entrada: **"Sou novo"** (digita o nome, cria o registro) ou **"Já participo"** (escolhe o nome na lista — re-vincula a conta ao trocar de celular/limpar navegador).
-- Identidade lembrada no aparelho (armazenamento local).
-- **Admin** = participante com flag `is_admin` marcada **manualmente uma vez no banco** (João se cadastra, avisa, flag é ligada). Habilita as telas de admin.
+- Tela de entrada: campo de nome + senha.
+  - **"Sou novo"** — digita nome e cria uma senha. Conta criada imediatamente.
+  - **"Já participo"** — digita o mesmo nome e senha cadastrados. Funciona em qualquer celular sem precisar recuperar sessão.
+- **Admin** = participante com flag `is_admin` marcada manualmente no banco. Habilita a tela de admin.
 
 ### Postura de segurança (risco aceito conscientemente)
 
-- Proteção da regra "ocultar palpites" e "editar só o próprio" é **no app (na confiança)**, não garantida no servidor. Um amigo com conhecimento técnico consegue espiar via DevTools. Aceitável para o grupo.
-- Única escrita protegida de fato: **lançamento de resultados** (restrito ao admin) para ninguém estragar o placar.
+- A proteção de "ocultar palpites antes do travamento" e "editar só o próprio palpite" é aplicada no app, não garantida a nível de banco. Um participante com conhecimento técnico consegue contornar via DevTools. Aceitável para o grupo.
+- Única escrita protegida de fato: **lançamento de resultados** (restrito ao admin).
 
-## Telas (MVP)
+## Sistema de ligas
 
-1. **Entrada** — "Sou novo" / "Já participo".
-2. **Jogos / Meu palpite** — próximos jogos, digitar/editar placar até travar; destaque "você ainda não palpitou nos jogos de hoje".
-3. **Jogo encerrado** — após travar: palpite de todos + resultado + pontos de cada um.
-4. **Classificação** — ranking geral com desempate.
-5. **Meus palpites** — histórico pessoal e pontos por jogo.
-6. **Admin** (só João) — lançar resultado + definir confrontos do mata-mata.
+Ligas são subgrupos de competição dentro do bolão global. Qualquer participante pode criar uma liga e convidar outros.
+
+- **Ranking por liga:** filtrado pelos pontos acumulados a partir da data `starts_at` da liga. Todos os membros partem do zero nessa data, independentemente de quantos pontos já tinham no ranking global.
+- **`starts_at`** é configurado pelo criador no momento da criação da liga.
+- O ranking global (todos os participantes, desde o início da Copa) continua sempre disponível.
+
+### Fluxo de convite — por nome
+
+1. O criador da liga abre a tela de gerenciamento e convida um participante pelo nome.
+2. O convidado vê o convite pendente no app (badge na aba Liga) e aceita ou recusa.
+
+### Fluxo de convite — por link
+
+1. O criador gera um link de convite e compartilha (ex: via WhatsApp).
+2. Quem acessa o link envia uma **solicitação de entrada** (`requested`).
+3. O criador vê a solicitação na tela de Ligas (badge) e aprova ou recusa.
+4. Links expiram em 7 dias e têm limite de uso.
+
+## Telas
+
+1. **Entrada** — campo de nome + senha; fluxo "Sou novo" ou "Já participo".
+2. **Home** — painel principal: ranking (filtrado pela liga ativa ou global), partidas ao vivo, próximas 3 partidas, posição pessoal e distância para cima/baixo. Badges 🔥 para rodada perfeita e indicadores ↑↓ de variação no ranking.
+3. **Jogos** — todos os jogos organizados por data, com entrada e edição de palpites até o travamento.
+4. **Ligas** — criação e gerenciamento de ligas; convites por nome e por link; aprovação de solicitações; ranking filtrado por liga.
+5. **Meus Palpites** — histórico pessoal de palpites com pontuação por jogo, filtrável por liga.
+6. **Admin** (restrito) — lançamento de resultados e gestão dos confrontos do mata-mata.
+
+## Compartilhamento
+
+Após a revelação de um resultado, o participante pode gerar uma imagem com seu palpite e a pontuação obtida para compartilhar no WhatsApp ou redes sociais.
 
 ## Notificações
 
-- **Sem Web Push** no MVP.
-- Em vez disso: **aviso dentro do app** ("você ainda não palpitou nos jogos de hoje"). Lembretes externos via WhatsApp.
+- **Sem Web Push.**
+- Avisos dentro do app: badge na aba Jogos indica quantos jogos do dia ainda não têm palpite.
+- Lembretes externos via WhatsApp.
 
 ## Stack e infraestrutura
 
 - Frontend: **React + Vite + TypeScript + Tailwind**, instalável via `vite-plugin-pwa`.
-- Backend/dados: **Supabase (plano gratuito)** — Postgres + API + realtime para o ranking.
-- Deploy: estático grátis na **Vercel ou Netlify**.
+- Backend/dados: **Supabase** — Postgres + Supabase Auth + Realtime.
+- Sync automático: **Edge Function** + pg_cron consumindo football-data.org.
+- Deploy: estático na **Vercel**.
 
 ## Identidade visual
 
-- Nome: **"Bolão"** (provisório, fácil de trocar).
-- Visual: **tema escuro** com toque verde/amarelo.
-
-## Pendências de execução (não bloqueiam o design)
-
-- Compilar/validar a tabela de jogos restantes da Copa 2026 com horários de Brasília.
-- Ligar a flag de admin no registro do João após o primeiro cadastro.
-- Definir o modelo de dados no Supabase (participantes, jogos, palpites) e a regra de cálculo de pontos.
+- Nome: **"Bolão"**.
+- Visual: tema escuro com toque verde/amarelo — ver DESIGN.md.

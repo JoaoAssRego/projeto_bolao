@@ -13,6 +13,8 @@ colors:
   accent-fg: "oklch(12% 0.025 155)"
   ok: "oklch(55% 0.135 155)"
   ok-fg: "oklch(95% 0.008 155)"
+  near-perfect: "oklch(75% 0.18 120)"
+  near-perfect-fg: "oklch(12% 0.025 155)"
   live: "oklch(63% 0.257 29)"
 typography:
   display:
@@ -90,7 +92,7 @@ components:
 
 **Creative North Star: "A Mesa do Bolão"**
 
-The image is a table among friends: worn at the edges, personal, contested. Ten people who know each other too well to be polite about losing. This is a shared object built for a specific group — not a product designed for strangers at scale. People open the app wanting to beat their friends. The interface holds that energy: competitive, warm, genuinely fun in the way that rivalry among people who like each other is fun.
+The image is a table among friends: worn at the edges, personal, contested. Thirty people who know each other too well to be polite about losing. This is a shared object built for a specific group — not a product designed for strangers at scale. People open the app wanting to beat their friends. The interface holds that energy: competitive, warm, genuinely fun in the way that rivalry among people who like each other is fun.
 
 The scene is a phone held under the glow of a television during a night game. Dark surfaces absorb ambient light and put content forward. The single yellow accent, borrowed from the seleção yellow of the Brazilian flag, carries all the semantic weight in the system. It marks the button to press, the number that matters, the player in first place. When yellow appears, it means something. When it doesn't, nothing competes.
 
@@ -116,7 +118,8 @@ A night-lit pitch with one lamp on. The surface stack is four steps of the same 
 
 ### Secondary
 
-- **Verde Certo** (`oklch(55% 0.135 155)`): Correct-prediction green. Used exclusively for the "Salvo ✓" button confirmation state and 5-point badges. It means "you got it right." Not a UI accent; a semantic event.
+- **Verde Certo** (`oklch(55% 0.135 155)`): Correct-prediction green. Used exclusively for the "Salvo ✓" button confirmation state and 5-point badges. It means "you got the result right." Not a UI accent; a semantic event.
+- **Quase Certo** (`oklch(75% 0.18 120)`): Yellow-green for 7-point badges. Used exclusively for the 7 pts reward — "you got the result and the margin, but not the exact score." Sits between the yellow of perfection and the green of a correct call.
 
 ### Tertiary
 
@@ -213,14 +216,19 @@ The primary score-entry mechanism. A vertical number roller: drag up to increase
 - **Style:** Fixed viewport-bottom, max-width 448px, centered. `background: oklch(11% 0.025 155 / 0.96)` with `backdrop-filter: blur`. Border-top: `1px solid var(--border)`.
 - **Item anatomy:** Emoji icon (18px) above text label (12px). No SVG icon library.
 - **States:** Active: `color: var(--accent)`. Inactive: `color: var(--t3)`. `transition: color 150ms`.
-- **Notification badge:** Absolute-positioned, `background: oklch(63% 0.257 29)`, 16px circle, 9px bold white text.
+- **Notification badge:** Absolute-positioned, `background: var(--live)`, 16px circle, 9px bold white text.
+- **Tabs (in order):** Início · Liga · Jogos · Meus · Admin (visible only to admins).
+  - **Início badge:** count of pending league invites directed at the current user.
+  - **Liga badge:** count of pending join requests awaiting creator approval.
+  - **Jogos badge:** count of today's matches with no prediction yet submitted.
 
 ### Points Badge
 
 Inline reward indicator shown next to each prediction after reveal.
 
-- **10 pts:** `background: var(--accent)`, `color: var(--accent-fg)` — exact match, maximum reward.
-- **5 pts:** `background: var(--ok)`, `color: var(--ok-fg)` — correct result direction, partial credit.
+- **10 pts:** `background: var(--accent)`, `color: var(--accent-fg)` — exact score, maximum reward.
+- **7 pts:** `background: var(--near-perfect)`, `color: var(--near-perfect-fg)` — correct result and goal margin, near miss on exact score.
+- **5 pts:** `background: var(--ok)`, `color: var(--ok-fg)` — correct result only.
 - **0 pts:** `background: var(--raised)`, `color: var(--t3)` — no credit, muted.
 - **Shape:** 6px radius, 48px fixed width, padding 2px / 8px, 12px bold centered text.
 
@@ -257,7 +265,7 @@ The standings list item. The most emotionally loaded component in the product.
 ### Don't:
 
 - **Don't** replicate apps de apostas (Bet365, Sportingbet): no dense multi-column layouts, no competing CTAs stacked on the same screen, no neon color overload, no urgency patterns designed to extract money.
-- **Don't** go SaaS dashboard (Linear, Vercel): cold, corporate, impersonal. This is for 10 people who know each other.
+- **Don't** go SaaS dashboard (Linear, Vercel): cold, corporate, impersonal. This is for a specific group of friends who know each other.
 - **Don't** animate like a children's app: no bounce easing, no elastic springs, no confetti on correct predictions, no over-choreographed page transitions.
 - **Don't** scatter `var(--accent)` across decorative elements, dividers, or secondary text. Every extra yellow dilutes the one that matters.
 - **Don't** use `box-shadow`. Depth is tonal. Use a `var(--raised)` background.

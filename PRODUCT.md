@@ -1,16 +1,12 @@
 # Product
 
-## Register
-
-product
-
 ## Users
 
-~10 close friends, all Brazilian, using this on mobile (PWA). Casual enough to not want a real login, competitive enough to care deeply about rankings. They open the app before kickoff to lock in a prediction, and again after the match to see who scored points. Context: phone in hand, maybe watching the game at the same time. Not tech workers — they shouldn't have to think about the interface.
+~30 active participants, all Brazilian, using this on mobile (PWA). Casual enough to not want a complicated login, competitive enough to care deeply about rankings. They open the app before kickoff to lock in a prediction, and again after the match to see who scored points. Context: phone in hand, maybe watching the game at the same time. Not tech workers — they shouldn't have to think about the interface.
 
 ## Product Purpose
 
-A World Cup betting pool for a fixed group of friends. Predict match scores before kickoff, earn points based on accuracy, track the standings. No money involved — just pride. The score entry, result reveal, and standings table are the three load-bearing surfaces. Everything else is secondary.
+A World Cup betting pool for a group of friends. Predict match scores before kickoff, earn points based on accuracy, track the standings. No money involved — just pride. The score entry, result reveal, and standings table are the three load-bearing surfaces. Leagues add a layer of personal rivalry — subgroups competing within the global pool — but the core loop is unchanged. Everything else is secondary.
 
 ## Brand Personality
 
@@ -25,11 +21,11 @@ Competitive, tense, serious. The mood is a futsal court at 8pm, everyone wants t
 
 ## Design Principles
 
-1. **Standings first.** The ranking table is the emotional core — the "I'm in first place" moment is what players check most. Every screen should make it easy to get back there.
+1. **Standings first.** The ranking table is the emotional core — the "I'm in first place" moment is what players check most. Every screen should make it easy to get back there. Leagues surface that moment within a tighter circle of rivals.
 2. **Tension over celebration.** The interface should feel like the final minutes of a match, not the post-game party. Weight and stillness over bounce and confetti.
 3. **Zero friction.** Pick a score, lock it, check results. The path between intent and action must be as short as possible — no confirmation dialogs, no unnecessary steps.
 4. **Color earns its place.** Yellow = action, green = correct, red = live urgency. Color is semantic, never decorative. Adding color for atmosphere dilutes the signal.
-5. **Personal scale.** This is built for 10 people who know each other. It should feel handmade and specific, not like a generic product scaled for thousands.
+5. **Personal scale.** This is built for a specific group of friends who know each other. It should feel handmade and specific, not like a generic product scaled for thousands.
 
 ## Accessibility & Inclusion
 

@@ -1,12 +1,13 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
 import { buildStandings, withRanks, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
-import { initTodaySnapshot, loadPreviousSnapshot } from '../lib/rankingSnapshot'
+import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
+import type { SnapshotEntry } from '../lib/rankingSnapshot'
 
 function DeltaBadge({ delta }: { delta: number | undefined }) {
   if (delta == null) return null
-  if (delta === 0) return <span className="text-xs font-semibold text-[var(--t3)]">—</span>
+  if (delta === 0) return null
   if (delta > 0)
     return (
       <span className="tabular-nums text-xs font-bold text-[oklch(62%_0.18_145)]">↑{delta}</span>
@@ -25,16 +26,17 @@ export default function Classificacao() {
     [participants, matches, predictions],
   )
 
+  const [todaySnapshot, setTodaySnapshot] = useState<SnapshotEntry[] | null>(null)
+
   useEffect(() => {
-    if (loading) return
+    if (loading || ranking.length === 0) return
     initTodaySnapshot(ranking)
+    setTodaySnapshot((prev) => prev ?? loadTodaySnapshot())
   }, [loading, ranking])
 
-  const previousSnapshot = useMemo(() => loadPreviousSnapshot(), [])
-
   const delta = useMemo(
-    () => (previousSnapshot ? computeRankingDelta(ranking, previousSnapshot.entries) : new Map<string, number>()),
-    [ranking, previousSnapshot],
+    () => (todaySnapshot ? computeRankingDelta(ranking, todaySnapshot) : new Map<string, number>()),
+    [ranking, todaySnapshot],
   )
 
   const perfectRound = useMemo(

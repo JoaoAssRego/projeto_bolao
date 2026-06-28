@@ -252,10 +252,15 @@ interface DbMatch {
   finished: boolean
 }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS },
   })
 }
 
@@ -265,7 +270,8 @@ function groupLabel(g: string | null): string | null {
   return m ? `Grupo ${m[1].toUpperCase()}` : null
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   const token = Deno.env.get('FOOTBALL_DATA_TOKEN')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')

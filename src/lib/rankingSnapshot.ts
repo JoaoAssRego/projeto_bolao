@@ -56,15 +56,25 @@ export function loadPreviousSnapshot(): { date: string; entries: SnapshotEntry[]
 }
 
 /**
- * Salva o snapshot de hoje na primeira chamada do dia.
- * Chama toda vez que os dados chegam — é idempotente.
+ * Salva o snapshot de hoje na primeira chamada do dia para o contexto dado.
+ * `contextId` diferencia ranking global (undefined) de cada liga (leagueId).
+ * Idempotente — só salva uma vez por dia por contexto.
  */
-export function initTodaySnapshot(ranking: { participant_id: string; rank: number }[]): void {
+export function initTodaySnapshot(
+  ranking: { participant_id: string; rank: number }[],
+  contextId?: string,
+): void {
   if (ranking.length === 0) return
-  const today = getTodayBRT()
-  if (loadSnapshot(today)) return
+  const key = contextId ? `${getTodayBRT()}_${contextId}` : getTodayBRT()
+  if (loadSnapshot(key)) return
   saveSnapshot(
-    today,
+    key,
     ranking.map((r) => ({ participantId: r.participant_id, position: r.rank })),
   )
+}
+
+/** Retorna o snapshot de hoje (BRT) para o contexto dado, se existir. */
+export function loadTodaySnapshot(contextId?: string): SnapshotEntry[] | null {
+  const key = contextId ? `${getTodayBRT()}_${contextId}` : getTodayBRT()
+  return loadSnapshot(key)
 }
