@@ -7,7 +7,7 @@ import { buildStandings, withRanks } from '../lib/scoring'
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
 export default function Ligas() {
-  const { participants, matches, predictions, leagues, leagueMembers, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember } = useStore()
+  const { participants, matches, predictions, leagues, leagueMembers, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember } = useStore()
   const { me } = useAuth()
 
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(
@@ -67,10 +67,10 @@ export default function Ligas() {
 
   const selectedLeague = currentLeagueId ? (leagues.find(l => l.id === currentLeagueId) ?? null) : null
 
-  // Numa liga, todos começam zerados a partir da criação dela: só contam jogos
-  // cujo início seja a partir de selectedLeague.created_at. No Global, conta tudo.
+  // Numa liga, só contam jogos a partir de starts_at (se definido) ou created_at.
+  // No Global, conta tudo.
   const ranking = useMemo(
-    () => withRanks(buildStandings(filteredParticipants, matches, predictions, selectedLeague?.created_at)),
+    () => withRanks(buildStandings(filteredParticipants, matches, predictions, selectedLeague ? (selectedLeague.starts_at ?? selectedLeague.created_at) : undefined)),
     [filteredParticipants, matches, predictions, selectedLeague],
   )
 
@@ -182,9 +182,9 @@ export default function Ligas() {
       {showCreate && (
         <CreateLeagueModal
           onClose={() => setShowCreate(false)}
-          onCreate={async (name) => {
+          onCreate={async (name, startsAt) => {
             if (!me) return
-            const league = await createLeague(name, me.id)
+            const league = await createLeague(name, me.id, startsAt)
             selectLeague(league.id)
             setShowCreate(false)
           }}
@@ -199,6 +199,7 @@ export default function Ligas() {
           acceptInvite={acceptInvite}
           removeMember={removeMember}
           deleteLeague={deleteLeague}
+          updateLeagueStartsAt={updateLeagueStartsAt}
         />
       )}
       {showInvites && (
@@ -254,8 +255,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 // ── Modal: Criar liga ──────────────────────────────────────────────────────────
 
-function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => Promise<void> }) {
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, startsAt: string | null) => Promise<void> }) {
   const [name, setName] = useState('')
+  const [startsDate, setStartsDate] = useState(todayIso())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -264,8 +270,10 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
     if (!trimmed) return
     setLoading(true)
     setError(null)
+    // Converte a data local (YYYY-MM-DD) para início do dia em UTC
+    const startsAt = startsDate ? new Date(`${startsDate}T00:00:00`).toISOString() : null
     try {
-      await onCreate(trimmed)
+      await onCreate(trimmed, startsAt)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : ''
       setError(msg.includes('unique') || msg.includes('duplicate') ? 'Você já tem uma liga com esse nome.' : 'Erro ao criar liga.')
@@ -286,6 +294,15 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
           maxLength={40}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--raised)] px-3 py-2.5 text-sm text-[var(--t1)] placeholder-[var(--t3)] focus:border-[var(--accent)] focus:outline-none"
         />
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-[var(--t2)]">Jogos contam pontos a partir de</label>
+          <input
+            type="date"
+            value={startsDate}
+            onChange={(e) => setStartsDate(e.target.value)}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--raised)] px-3 py-2.5 text-sm text-[var(--t1)] focus:border-[var(--accent)] focus:outline-none"
+          />
+        </div>
         {error && <p className="text-xs text-red-400">{error}</p>}
         <button
           onClick={() => void handleCreate()}
@@ -302,7 +319,7 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
 // ── Modal: Gerenciar liga ──────────────────────────────────────────────────────
 
 function ManageLeagueModal({
-  leagueId, onClose, onDeleted, inviteToLeague, acceptInvite, removeMember, deleteLeague,
+  leagueId, onClose, onDeleted, inviteToLeague, acceptInvite, removeMember, deleteLeague, updateLeagueStartsAt,
 }: {
   leagueId: string
   onClose: () => void
@@ -311,6 +328,7 @@ function ManageLeagueModal({
   acceptInvite: (leagueId: string, participantId: string) => Promise<void>
   removeMember: (leagueId: string, participantId: string) => Promise<void>
   deleteLeague: (leagueId: string) => Promise<void>
+  updateLeagueStartsAt: (leagueId: string, startsAt: string | null) => Promise<void>
 }) {
   const { leagues, leagueMembers, participants, createLeagueInviteLink } = useStore()
   const { me } = useAuth()
@@ -318,10 +336,15 @@ function ManageLeagueModal({
   const [inviteMsg, setInviteMsg] = useState<{ text: string; ok: boolean } | null>(null)
   const [inviting, setInviting] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [savingDate, setSavingDate] = useState(false)
+  const [dateMsg, setDateMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
   const league = leagues.find(l => l.id === leagueId)
   if (!league) return null
   const leagueName = league.name
+
+  const currentStartsIso = league.starts_at ?? league.created_at
+  const [startsDate, setStartsDate] = useState(() => new Date(currentStartsIso).toISOString().slice(0, 10))
 
   const isCreator = me?.id === league.creator_id
   const accepted = leagueMembers.filter(m => m.league_id === leagueId && m.status === 'accepted')
@@ -330,6 +353,20 @@ function ManageLeagueModal({
 
   function getName(id: string) {
     return participants.find(p => p.id === id)?.name ?? '—'
+  }
+
+  async function handleSaveDate() {
+    if (!startsDate) return
+    setSavingDate(true)
+    setDateMsg(null)
+    try {
+      await updateLeagueStartsAt(leagueId, new Date(`${startsDate}T00:00:00`).toISOString())
+      setDateMsg({ text: 'Data salva!', ok: true })
+    } catch {
+      setDateMsg({ text: 'Erro ao salvar data.', ok: false })
+    } finally {
+      setSavingDate(false)
+    }
   }
 
   async function handleInvite() {
@@ -416,6 +453,31 @@ function ManageLeagueModal({
             </div>
             {inviteMsg && (
               <p className={`text-xs ${inviteMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{inviteMsg.text}</p>
+            )}
+          </div>
+        )}
+
+        {/* Data de início da contagem de pontos (só criador) */}
+        {isCreator && (
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-[var(--t2)]">Pontos contam a partir de</span>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={startsDate}
+                onChange={(e) => { setStartsDate(e.target.value); setDateMsg(null) }}
+                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--raised)] px-3 py-2 text-sm text-[var(--t1)] focus:border-[var(--accent)] focus:outline-none"
+              />
+              <button
+                onClick={() => void handleSaveDate()}
+                disabled={savingDate}
+                className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+              >
+                {savingDate ? '…' : 'Salvar'}
+              </button>
+            </div>
+            {dateMsg && (
+              <p className={`text-xs ${dateMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{dateMsg.text}</p>
             )}
           </div>
         )}

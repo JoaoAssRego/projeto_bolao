@@ -38,7 +38,8 @@ interface StoreValue {
   savePrediction: (participantId: string, matchId: string, home: number, away: number) => Promise<void>
   saveResult: (matchId: string, home: number, away: number, advancer: 'home' | 'away' | null) => Promise<void>
   saveKickoff: (matchId: string, kickoffIso: string) => Promise<void>
-  createLeague: (name: string, creatorId: string) => Promise<League>
+  createLeague: (name: string, creatorId: string, startsAt?: string | null) => Promise<League>
+  updateLeagueStartsAt: (leagueId: string, startsAt: string | null) => Promise<void>
   deleteLeague: (leagueId: string) => Promise<void>
   inviteToLeague: (leagueId: string, participantId: string, invitedById: string) => Promise<void>
   acceptInvite: (leagueId: string, participantId: string) => Promise<void>
@@ -238,10 +239,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
-  const createLeague = useCallback(async (name: string, creatorId: string) => {
+  const createLeague = useCallback(async (name: string, creatorId: string, startsAt?: string | null) => {
     const { data, error: err } = await supabase
       .from('leagues')
-      .insert({ name: name.trim(), creator_id: creatorId })
+      .insert({ name: name.trim(), creator_id: creatorId, starts_at: startsAt ?? null })
       .select('*')
       .single()
     if (err) throw err
@@ -252,6 +253,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (mErr) throw mErr
     await refresh()
     return data as League
+  }, [refresh])
+
+  const updateLeagueStartsAt = useCallback(async (leagueId: string, startsAt: string | null) => {
+    const { error: err } = await supabase
+      .from('leagues')
+      .update({ starts_at: startsAt })
+      .eq('id', leagueId)
+    if (err) throw err
+    await refresh()
   }, [refresh])
 
   const deleteLeague = useCallback(async (leagueId: string) => {
@@ -332,6 +342,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saveResult,
       saveKickoff,
       createLeague,
+      updateLeagueStartsAt,
       deleteLeague,
       inviteToLeague,
       acceptInvite,
@@ -340,7 +351,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createLeagueInviteLink,
       acceptInviteByToken,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

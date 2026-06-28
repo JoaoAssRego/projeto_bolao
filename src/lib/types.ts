@@ -60,6 +60,7 @@ export interface League {
   name: string
   creator_id: string
   created_at: string
+  starts_at: string | null
 }
 
 export interface LeagueMember {
