@@ -154,16 +154,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // Caminho A: usuário digitou um email real
     if (isEmailInput) {
+      // Tenta login direto (funciona se auth.users.email já foi atualizado/confirmado)
       const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email: trimmed, password })
-      if (authErr || !authData.user) throw new Error('wrong-password')
-      const { data: p, error: pErr } = await supabase
+      if (!authErr && authData.user) {
+        const { data: p, error: pErr } = await supabase
+          .from('participants')
+          .select(PARTICIPANT_COLS)
+          .eq('auth_user_id', authData.user.id)
+          .single()
+        if (pErr) throw pErr
+        await refresh()
+        return p as Participant
+      }
+
+      // Fallback: o auth ainda usa email fake (@bolao.local). Busca o participante
+      // pelo email salvo em participants.email e loga com o email fake que o Auth conhece.
+      const { data: pByEmail } = await supabase
         .from('participants')
-        .select(PARTICIPANT_COLS)
-        .eq('auth_user_id', authData.user.id)
-        .single()
-      if (pErr) throw pErr
-      await refresh()
-      return p as Participant
+        .select('name')
+        .eq('email', trimmed)
+        .maybeSingle()
+
+      if (pByEmail?.name) {
+        const fakeEmail = toAuthEmail(pByEmail.name)
+        const { data: authData2, error: authErr2 } = await supabase.auth.signInWithPassword({ email: fakeEmail, password })
+        if (!authErr2 && authData2.user) {
+          const { data: p, error: pErr } = await supabase
+            .from('participants')
+            .select(PARTICIPANT_COLS)
+            .eq('auth_user_id', authData2.user.id)
+            .single()
+          if (pErr) throw pErr
+          await refresh()
+          return p as Participant
+        }
+      }
+
+      throw new Error('wrong-password')
     }
 
     // Caminho B: nome de usuário — tenta com email fake (@bolao.local)
@@ -380,17 +407,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!result.ok) throw new Error(result.error ?? 'reset-failed')
   }, [])
 
-  // Atualiza o email real do participante: sincroniza com Supabase Auth (envia
-  // confirmação) e persiste na tabela. O email só vira ativo no Auth após confirmação.
+  // Salva o email real do participante. Persiste na tabela primeiro (operação
+  // principal); depois tenta sincronizar com o Supabase Auth para habilitar
+  // resetPasswordForEmail — essa etapa é best-effort: falha silenciosamente se
+  // SMTP não estiver configurado no projeto Supabase.
   const updateParticipantEmail = useCallback(async (participantId: string, email: string): Promise<void> => {
-    const { error: authErr } = await supabase.auth.updateUser({ email })
-    if (authErr) throw authErr
     const { error: dbErr } = await supabase
       .from('participants')
       .update({ email })
       .eq('id', participantId)
     if (dbErr) throw dbErr
     await refresh()
+    // Best-effort: não lança mesmo se falhar (ex.: SMTP não configurado)
+    await supabase.auth.updateUser({ email })
   }, [refresh])
 
   const value = useMemo<StoreValue>(

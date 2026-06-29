@@ -70,8 +70,8 @@ function AppAutenticado() {
 const EMAIL_DISMISSED_KEY = "bolao.email-card-dismissed";
 
 function EmailCadastroCard({ me }: { me: Participant }) {
-  const { participants, updateParticipantEmail } = useStore();
-  const [dismissed, setDismissed] = useState(() => {
+  const { updateParticipantEmail } = useStore();
+  const [dismissed] = useState(() => {
     const ts = localStorage.getItem(EMAIL_DISMISSED_KEY);
     return ts ? Date.now() - parseInt(ts) < 7 * 24 * 60 * 60 * 1000 : false;
   });
@@ -80,18 +80,26 @@ function EmailCadastroCard({ me }: { me: Participant }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Consulta direta ao banco para evitar race condition entre signIn e onAuthStateChange.
+  // null = ainda verificando, true/false = resultado definitivo.
+  const [hasEmailInDb, setHasEmailInDb] = useState<boolean | null>(null);
 
-  // Verifica se o participante já tem email registrado (usando lista do store,
-  // que é atualizada após updateParticipantEmail → refresh).
-  const myRecord = participants.find((p) => p.id === me.id);
-  const hasEmail = Boolean(myRecord?.email || me.email);
-
-  if (dismissed || hasEmail || done) return null;
+  useEffect(() => {
+    supabase
+      .from("participants")
+      .select("email")
+      .eq("id", me.id)
+      .single()
+      .then(({ data }) => setHasEmailInDb(Boolean(data?.email)));
+  }, [me.id]);
 
   function dismiss() {
-    setDismissed(true);
     localStorage.setItem(EMAIL_DISMISSED_KEY, String(Date.now()));
+    // Força re-render atualizando o estado (useState read-only acima — usamos ref local)
+    setDone(true);
   }
+
+  if (dismissed || hasEmailInDb === null || hasEmailInDb || done) return null;
 
   async function handleSave() {
     const email = emailInput.trim();
@@ -102,10 +110,12 @@ function EmailCadastroCard({ me }: { me: Participant }) {
       await updateParticipantEmail(me.id, email);
       setDone(true);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("already") || msg.includes("taken"))
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("already") || msg.includes("taken") || msg.includes("unique"))
         setErr("Esse email já está em uso. Tente outro.");
-      else setErr("Não consegui salvar. Verifique o email e tente de novo.");
+      else if (msg.includes("PGRST") || msg.includes("column"))
+        setErr("Migração pendente: rode 'supabase db push' para ativar o campo de email.");
+      else setErr(`Erro: ${msg}`);
     } finally {
       setBusy(false);
     }
