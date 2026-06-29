@@ -99,6 +99,12 @@ Após a revelação de um resultado, o participante pode gerar uma imagem com se
 - Avisos dentro do app: badge na aba Jogos indica quantos jogos do dia ainda não têm palpite.
 - Lembretes externos via WhatsApp.
 
+## Modelo de dados
+
+A estrutura completa das tabelas, colunas e constraints está documentada em [`docs/database/database-doc.md`](docs/database/database-doc.md).
+
+Tabelas principais: `participants`, `matches`, `predictions`, `leagues`, `league_members`, `league_invite_links`.
+
 ## Stack e infraestrutura
 
 - Frontend: **React + Vite + TypeScript + Tailwind**, instalável via `vite-plugin-pwa`.

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Match, Participant, Prediction } from '../lib/types'
 import { isKnockout, STAGE_LABEL } from '../lib/types'
 import { hasResult, isLocked, scoreFor } from '../lib/scoring'
@@ -11,12 +12,11 @@ interface Props {
   match: Match
   me: Participant
   predictions: Prediction[]
-  participants: Participant[]
   onSave: (home: number, away: number) => Promise<void>
   hasPrediction?: boolean
 }
 
-export default function MatchCard({ match, me, predictions, participants, onSave, hasPrediction }: Props) {
+export default function MatchCard({ match, me, predictions, onSave, hasPrediction }: Props) {
   const locked = isLocked(match)
   const finished = hasResult(match)
   const teamsDefined = Boolean(match.home_team && match.away_team)
@@ -62,10 +62,27 @@ export default function MatchCard({ match, me, predictions, participants, onSave
         </p>
       )}
 
-      {/* Revealed predictions (locked state) */}
+      {/* Compact summary + link when locked */}
       {teamsDefined && locked && (
-        <div className="border-t border-[var(--border)] px-4 py-3">
-          <Revealed match={match} predictions={predictions} participants={participants} meId={me.id} />
+        <div className="border-t border-[var(--border)] px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {myPred ? (
+              <span className="text-sm font-semibold text-[var(--t1)] tabular-nums">
+                Seu palpite: {myPred.home_score} × {myPred.away_score}
+              </span>
+            ) : (
+              <span className="text-sm text-[var(--t3)]">Sem palpite</span>
+            )}
+            <span className="text-xs text-[var(--t3)]">
+              {predictions.length === 1 ? '1 palpite' : `${predictions.length} palpites`}
+            </span>
+          </div>
+          <Link
+            to={`/jogo/${match.id}`}
+            className="flex-shrink-0 rounded-xl bg-[var(--raised)] px-4 py-2 text-sm font-semibold text-[var(--t2)] transition-colors hover:text-[var(--t1)]"
+          >
+            Ver Palpites
+          </Link>
         </div>
       )}
 
@@ -224,58 +241,3 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
   )
 }
 
-function Revealed({
-  match,
-  predictions,
-  participants,
-  meId,
-}: {
-  match: Match
-  predictions: Prediction[]
-  participants: Participant[]
-  meId: string
-}) {
-  const byId = new Map(participants.map((p) => [p.id, p.name]))
-  const rows = predictions
-    .map((p) => ({ pred: p, name: byId.get(p.participant_id) ?? '—', pts: scoreFor(p, match) }))
-    .sort((a, b) => (b.pts ?? 0) - (a.pts ?? 0) || a.name.localeCompare(b.name))
-
-  if (rows.length === 0) {
-    return <p className="text-center text-sm text-[var(--t3)]">Ninguém palpitou neste jogo.</p>
-  }
-
-  return (
-    <ul className="space-y-1.5 text-sm">
-      {rows.map(({ pred, name, pts }) => (
-        <li
-          key={pred.id}
-          className={`flex items-center justify-between rounded-lg px-2 py-1 ${
-            pred.participant_id === meId ? 'bg-[var(--raised)]' : ''
-          }`}
-        >
-          <span className="text-[var(--t1)]">
-            {name}
-            {pred.participant_id === meId && <span className="text-[var(--t3)]"> (você)</span>}
-          </span>
-          <span className="flex items-center gap-3">
-            <span className="tabular-nums text-[var(--t2)]">
-              {pred.home_score} × {pred.away_score}
-            </span>
-            <PointsBadge pts={pts} />
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function PointsBadge({ pts }: { pts: number | null }) {
-  if (pts == null) return <span className="text-xs text-[var(--t3)]">aguardando</span>
-  const color =
-    pts === 10
-      ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
-      : pts === 5
-        ? 'bg-[var(--ok)] text-[var(--ok-fg)]'
-        : 'bg-[var(--raised)] text-[var(--t3)]'
-  return <span className={`w-12 rounded-md px-2 py-0.5 text-center text-xs font-bold ${color}`}>{pts} pts</span>
-}

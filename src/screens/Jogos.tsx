@@ -44,7 +44,7 @@ function chipLabel(key: string, today: string, tomorrow: string): string {
 }
 
 export default function Jogos() {
-  const { matches, predictions, participants, savePrediction } = useStore()
+  const { matches, predictions, savePrediction } = useStore()
   const { me } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
@@ -138,7 +138,6 @@ export default function Jogos() {
               key={m.id}
               match={m}
               me={me}
-              participants={participants}
               predictions={predictions.filter((p) => p.match_id === m.id)}
               onSave={(h, a) => savePrediction(me.id, m.id, h, a)}
               hasPrediction={hasPrediction}

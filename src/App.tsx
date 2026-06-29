@@ -10,6 +10,7 @@ import Jogos from "./screens/Jogos";
 import Ligas from "./screens/Ligas";
 import MeusPalpites from "./screens/MeusPalpites";
 import Admin from "./screens/Admin";
+import JogoDetalhes from "./screens/JogoDetalhes";
 
 export default function App() {
   const { loading, configured } = useStore();
@@ -47,6 +48,7 @@ function AppAutenticado() {
           <Route path="/jogos" element={<Jogos />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/meus" element={<MeusPalpites />} />
+          <Route path="/jogo/:id" element={<JogoDetalhes />} />
           <Route
             path="/admin"
             element={me?.is_admin ? <Admin /> : <Navigate to="/" replace />}
