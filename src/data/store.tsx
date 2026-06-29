@@ -49,6 +49,9 @@ interface StoreValue {
   removeMember: (leagueId: string, participantId: string) => Promise<void>
   createLeagueInviteLink: (leagueId: string, createdBy: string) => Promise<LeagueInviteLink>
   acceptInviteByToken: (token: string) => Promise<string>
+  adminCreateResetToken: (participantId: string) => Promise<string>
+  resetPasswordWithToken: (participantName: string, token: string, newPassword: string) => Promise<void>
+  updateParticipantEmail: (participantId: string, email: string) => Promise<void>
 }
 
 
@@ -142,15 +145,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data as Participant
   }, [refresh])
 
-  // Login via Supabase Auth. Para participantes antigos (sem auth_user_id),
-  // verifica o hash legado e cria a conta auth na hora (migração lazy).
-  // Se a migration 0004 ainda não foi aplicada, cai para o fluxo legado puro.
-  const loginWithPassword = useCallback(async (name: string, password: string) => {
-    const trimmed = name.trim()
-    const email = toAuthEmail(trimmed)
+  // Login via Supabase Auth. Aceita nome de usuário OU email real.
+  // Para participantes antigos (sem auth_user_id), verifica o hash legado e cria
+  // a conta auth na hora (migração lazy). Se migration 0004 não aplicada, usa fluxo legado.
+  const loginWithPassword = useCallback(async (nameOrEmail: string, password: string) => {
+    const trimmed = nameOrEmail.trim()
+    const isEmailInput = trimmed.includes('@') && !trimmed.endsWith('@bolao.local')
 
-    // Caminho normal: conta auth já existe
-    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
+    // Caminho A: usuário digitou um email real
+    if (isEmailInput) {
+      const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email: trimmed, password })
+      if (authErr || !authData.user) throw new Error('wrong-password')
+      const { data: p, error: pErr } = await supabase
+        .from('participants')
+        .select(PARTICIPANT_COLS)
+        .eq('auth_user_id', authData.user.id)
+        .single()
+      if (pErr) throw pErr
+      await refresh()
+      return p as Participant
+    }
+
+    // Caminho B: nome de usuário — tenta com email fake (@bolao.local)
+    const fakeEmail = toAuthEmail(trimmed)
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email: fakeEmail, password })
     if (!authErr && authData.user) {
       const { data: p, error: pErr } = await supabase
         .from('participants')
@@ -174,7 +192,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const existing = existingResult.data
     if (!existing) throw new Error('not-found')
 
-    // Se migration aplicada e já tem auth_user_id, mas signInWithPassword falhou → senha errada
+    // Se migration aplicada e já tem auth_user_id → senha errada (fake email falhou acima)
     if (migrationApplied && existing.auth_user_id) throw new Error('wrong-password')
 
     // Verifica hash legado
@@ -192,9 +210,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     // Migration aplicada: cria conta auth e vincula ao participante existente
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password })
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email: fakeEmail, password })
     if (signUpErr) throw signUpErr
-    // Se confirmação de e-mail está ativa, signUp retorna session=null — orienta o usuário
     if (!signUpData.session) throw new Error('email-confirmation-required')
 
     const { error: claimErr } = await supabase.rpc('claim_participant', { p_name: trimmed })
@@ -348,6 +365,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data as string
   }, [refresh])
 
+  const adminCreateResetToken = useCallback(async (participantId: string): Promise<string> => {
+    const { data, error: err } = await supabase.rpc('admin_create_reset_token', { p_participant_id: participantId })
+    if (err) throw err
+    return data as string
+  }, [])
+
+  const resetPasswordWithToken = useCallback(async (participantName: string, token: string, newPassword: string): Promise<void> => {
+    const { data, error: err } = await supabase.functions.invoke('reset-password', {
+      body: { participantName, token: token.trim().toUpperCase(), newPassword },
+    })
+    if (err) throw err
+    const result = data as { ok: boolean; error?: string }
+    if (!result.ok) throw new Error(result.error ?? 'reset-failed')
+  }, [])
+
+  // Atualiza o email real do participante: sincroniza com Supabase Auth (envia
+  // confirmação) e persiste na tabela. O email só vira ativo no Auth após confirmação.
+  const updateParticipantEmail = useCallback(async (participantId: string, email: string): Promise<void> => {
+    const { error: authErr } = await supabase.auth.updateUser({ email })
+    if (authErr) throw authErr
+    const { error: dbErr } = await supabase
+      .from('participants')
+      .update({ email })
+      .eq('id', participantId)
+    if (dbErr) throw dbErr
+    await refresh()
+  }, [refresh])
+
   const value = useMemo<StoreValue>(
     () => ({
       loading,
@@ -375,8 +420,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeMember,
       createLeagueInviteLink,
       acceptInviteByToken,
+      adminCreateResetToken,
+      resetPasswordWithToken,
+      updateParticipantEmail,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, saveTeams, deleteMatch, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, saveTeams, deleteMatch, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken, adminCreateResetToken, resetPasswordWithToken, updateParticipantEmail],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

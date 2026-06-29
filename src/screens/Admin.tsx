@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../data/store'
 import { isKnockout } from '../lib/types'
-import type { Match } from '../lib/types'
+import type { Match, Participant } from '../lib/types'
 import { fromInputValue, toInputValue } from '../lib/format'
 import ScoreStepper from '../components/ScoreStepper'
 import { supabase } from '../lib/supabase'
@@ -33,7 +33,7 @@ function autoIso(name: string): string {
   return QUICK_ISO[key] ?? ''
 }
 
-type Tab = 'resultados' | 'confrontos' | 'sync'
+type Tab = 'resultados' | 'confrontos' | 'sync' | 'participantes'
 
 export default function Admin() {
   const [tab, setTab] = useState<Tab>('resultados')
@@ -46,6 +46,7 @@ export default function Admin() {
             ['resultados', 'Resultados'],
             ['confrontos', 'Horários'],
             ['sync', 'Sync'],
+            ['participantes', 'Participantes'],
           ] as [Tab, string][]
         ).map(([key, label]) => (
           <button
@@ -61,6 +62,7 @@ export default function Admin() {
       {tab === 'resultados' && <Resultados />}
       {tab === 'confrontos' && <Confrontos />}
       {tab === 'sync' && <SyncPanel />}
+      {tab === 'participantes' && <Participantes />}
     </div>
   )
 }
@@ -328,6 +330,86 @@ function ConfrontoRow({
       >
         {ok === 'horário' ? 'Salvo ✓' : 'Salvar horário'}
       </button>
+    </div>
+  )
+}
+
+// -------------------- Participantes (reset de senha) --------------------
+
+function Participantes() {
+  const { participants, adminCreateResetToken } = useStore()
+  const sorted = useMemo(() => [...participants].sort((a, b) => a.name.localeCompare(b.name)), [participants])
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="px-1 text-xs text-emerald-300/50">
+        Gere um código temporário para um participante redefinir a senha. Validade: 2 horas.
+      </p>
+      {sorted.map((p) => (
+        <ParticipanteRow key={p.id} participant={p} onGenerateToken={adminCreateResetToken} />
+      ))}
+    </div>
+  )
+}
+
+function ParticipanteRow({
+  participant,
+  onGenerateToken,
+}: {
+  participant: Participant
+  onGenerateToken: (id: string) => Promise<string>
+}) {
+  const [token, setToken] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function generate() {
+    setBusy(true)
+    try {
+      const t = await onGenerateToken(participant.id)
+      setToken(t)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copy() {
+    if (!token) return
+    await navigator.clipboard.writeText(token)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-900/60 bg-emerald-950/40 px-3 py-2">
+      <span className="truncate text-sm font-medium">{participant.name}</span>
+      {token ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="font-mono text-base font-bold tracking-widest text-canarinho-yellow">
+            {token}
+          </span>
+          <button
+            onClick={copy}
+            className="rounded-md bg-emerald-800 px-2 py-1 text-xs text-white"
+          >
+            {copied ? 'Copiado!' : 'Copiar'}
+          </button>
+          <button
+            onClick={() => setToken(null)}
+            className="text-xs text-emerald-400 hover:text-emerald-200"
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={generate}
+          disabled={busy}
+          className="shrink-0 rounded-lg bg-emerald-800 px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
+        >
+          {busy ? '…' : 'Gerar código'}
+        </button>
+      )}
     </div>
   )
 }

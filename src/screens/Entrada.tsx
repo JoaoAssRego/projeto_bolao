@@ -1,21 +1,30 @@
 import { useState } from "react";
 import { useStore } from "../data/store";
 import { useAuth } from "../data/auth";
+import { supabase } from "../lib/supabase";
 
 export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}) {
-  const { createParticipant, loginWithPassword } = useStore();
+  const { createParticipant, loginWithPassword, resetPasswordWithToken } = useStore();
   const { signIn } = useAuth();
-  const [mode, setMode] = useState<"menu" | "novo" | "existente">("menu");
+  const [mode, setMode] = useState<"menu" | "novo" | "existente" | "esqueci" | "confirmar-reset">("menu");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   function backToMenu() {
     setMode("menu");
     setName("");
     setPassword("");
+    setResetEmail("");
+    setResetCode("");
+    setNewPassword("");
     setErr(null);
+    setSuccessMsg(null);
   }
 
   async function handleCreate() {
@@ -30,7 +39,7 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
       const msg = e instanceof Error ? e.message : "";
       setErr(
         msg.includes("duplicate")
-          ? 'Esse nome (ou um muito parecido) já está em uso. Tente um nome diferente.'
+          ? "Esse nome (ou um muito parecido) já está em uso. Tente um nome diferente."
           : "Não consegui cadastrar. Tente de novo.",
       );
     } finally {
@@ -49,7 +58,7 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("wrong-password") || msg.includes("not-found"))
-        setErr("Usuário ou senha incorretos.");
+        setErr("Usuário/email ou senha incorretos.");
       else if (msg.includes("email-confirmation-required"))
         setErr(
           'Ative "Disable email confirmations" no Supabase Auth → Settings antes de continuar.',
@@ -59,6 +68,58 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
       setBusy(false);
     }
   }
+
+  async function handleSendResetEmail() {
+    const email = resetEmail.trim();
+    if (!email || !email.includes("@")) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      setSuccessMsg(
+        "Se esse email estiver cadastrado e confirmado, você receberá um link de redefinição em breve.",
+      );
+    } catch {
+      // Nunca revela se o email existe ou não
+      setSuccessMsg(
+        "Se esse email estiver cadastrado e confirmado, você receberá um link de redefinição em breve.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleConfirmReset() {
+    const trimmed = name.trim();
+    const code = resetCode.trim().toUpperCase();
+    if (!trimmed || code.length < 6 || newPassword.length < 4) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await resetPasswordWithToken(trimmed, code, newPassword);
+      setSuccessMsg("Senha redefinida com sucesso!");
+      setMode("existente");
+      setPassword("");
+      setResetCode("");
+      setNewPassword("");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("invalid-token"))
+        setErr("Código inválido. Verifique com o administrador.");
+      else if (msg.includes("expired-token"))
+        setErr("Código expirado. Peça ao administrador um novo código.");
+      else if (msg.includes("not-found"))
+        setErr("Nome não encontrado. Digite exatamente como se cadastrou.");
+      else setErr("Não consegui redefinir a senha. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inputCls =
+    "rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2";
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6">
@@ -105,7 +166,7 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
             onChange={(e) => setName(e.target.value)}
             placeholder="Seu nome ou apelido"
             maxLength={24}
-            className="rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2"
+            className={inputCls}
           />
           <input
             type="password"
@@ -113,7 +174,7 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="Crie uma senha (mín. 4 caracteres)"
-            className="rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2"
+            className={inputCls}
           />
           {err && <p className="text-sm text-red-400">{err}</p>}
           <button
@@ -134,13 +195,18 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
 
       {mode === "existente" && (
         <div className="flex flex-col gap-3">
+          {successMsg && (
+            <p className="rounded-xl bg-green-900/40 px-4 py-3 text-sm text-green-300">
+              {successMsg}
+            </p>
+          )}
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Seu nome ou apelido"
-            maxLength={24}
-            className="rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2"
+            placeholder="Nome, apelido ou email"
+            maxLength={64}
+            className={inputCls}
           />
           <input
             type="password"
@@ -148,7 +214,7 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             placeholder="Sua senha"
-            className="rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2"
+            className={inputCls}
           />
           {err && <p className="text-sm text-red-400">{err}</p>}
           <button
@@ -158,8 +224,120 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
           >
             {busy ? "Entrando…" : "Entrar"}
           </button>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={backToMenu}
+              className="text-sm text-[var(--t3)] transition-colors active:text-[var(--t2)]"
+            >
+              ← voltar
+            </button>
+            <button
+              onClick={() => { setMode("esqueci"); setErr(null); setSuccessMsg(null); }}
+              className="text-sm text-[var(--t3)] transition-colors active:text-[var(--t2)]"
+            >
+              Esqueci minha senha
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "esqueci" && (
+        <div className="flex flex-col gap-3">
+          <h2 className="font-bold text-lg text-[var(--t1)]">Redefinir senha</h2>
+
+          {!successMsg ? (
+            <>
+              <p className="text-sm text-[var(--t2)]">
+                Digite o email cadastrado na sua conta para receber o link de redefinição.
+              </p>
+              <input
+                autoFocus
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendResetEmail()}
+                placeholder="seu@email.com"
+                className={inputCls}
+              />
+              {err && <p className="text-sm text-red-400">{err}</p>}
+              <button
+                onClick={handleSendResetEmail}
+                disabled={busy || !resetEmail.trim() || !resetEmail.includes("@")}
+                className="rounded-2xl bg-[var(--accent)] py-3 font-bold text-[var(--accent-fg)] transition-all disabled:bg-[var(--raised)] disabled:text-[var(--t3)]"
+              >
+                {busy ? "Enviando…" : "Enviar link de recuperação"}
+              </button>
+
+              <div className="relative my-1 flex items-center gap-3">
+                <div className="h-px flex-1 bg-[var(--border)]" />
+                <span className="text-xs text-[var(--t3)]">ou</span>
+                <div className="h-px flex-1 bg-[var(--border)]" />
+              </div>
+
+              <p className="text-xs text-[var(--t3)]">
+                Sem email cadastrado?{" "}
+                <button
+                  onClick={() => { setMode("confirmar-reset"); setErr(null); }}
+                  className="underline text-[var(--t2)] active:text-[var(--t1)]"
+                >
+                  Use um código do administrador
+                </button>
+              </p>
+            </>
+          ) : (
+            <p className="rounded-xl bg-green-900/40 px-4 py-3 text-sm text-green-300">
+              {successMsg}
+            </p>
+          )}
+
           <button
-            onClick={backToMenu}
+            onClick={() => { setMode("existente"); setErr(null); setSuccessMsg(null); }}
+            className="text-sm text-[var(--t3)] transition-colors active:text-[var(--t2)]"
+          >
+            ← voltar
+          </button>
+        </div>
+      )}
+
+      {mode === "confirmar-reset" && (
+        <div className="flex flex-col gap-3">
+          <h2 className="font-bold text-lg text-[var(--t1)]">Código do administrador</h2>
+          <p className="text-sm text-[var(--t2)]">
+            Peça ao administrador do bolão para gerar um código de redefinição. O código expira em 2 horas.
+          </p>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Seu nome ou apelido"
+            maxLength={24}
+            className={inputCls}
+          />
+          <input
+            value={resetCode}
+            onChange={(e) => setResetCode(e.target.value.toUpperCase())}
+            placeholder="Código (6 caracteres)"
+            maxLength={6}
+            className={`${inputCls} font-mono tracking-widest`}
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleConfirmReset()}
+            placeholder="Nova senha (mín. 4 caracteres)"
+            className={inputCls}
+          />
+          {err && <p className="text-sm text-red-400">{err}</p>}
+          <button
+            onClick={handleConfirmReset}
+            disabled={busy || !name.trim() || resetCode.trim().length < 6 || newPassword.length < 4}
+            className="rounded-2xl bg-[var(--accent)] py-3 font-bold text-[var(--accent-fg)] transition-all disabled:bg-[var(--raised)] disabled:text-[var(--t3)]"
+          >
+            {busy ? "Redefinindo…" : "Redefinir senha"}
+          </button>
+          <button
+            onClick={() => { setMode("esqueci"); setErr(null); }}
             className="text-sm text-[var(--t3)] transition-colors active:text-[var(--t2)]"
           >
             ← voltar

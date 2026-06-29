@@ -3,6 +3,8 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./data/auth";
 import { useStore } from "./data/store";
 import { isLocked } from "./lib/scoring";
+import type { Participant } from "./lib/types";
+import { supabase } from "./lib/supabase";
 import Entrada from "./screens/Entrada";
 import ConviteRoute from "./screens/Convite";
 import Home from "./screens/Home";
@@ -26,8 +28,9 @@ export default function App() {
 }
 
 function Shell() {
-  const { me, loading: authLoading } = useAuth();
+  const { me, loading: authLoading, recoveryMode } = useAuth();
   if (authLoading) return <TelaCarregando />;
+  if (recoveryMode) return <TrocarSenhaRecuperacao />;
 
   return (
     <Routes>
@@ -42,6 +45,7 @@ function AppAutenticado() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
       <Header />
+      {me && <EmailCadastroCard me={me} />}
       <main className="flex-1 px-4 pb-24 pt-2">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -60,6 +64,193 @@ function AppAutenticado() {
     </div>
   );
 }
+
+// ─── Card de cadastro de email ───────────────────────────────────────────────
+
+const EMAIL_DISMISSED_KEY = "bolao.email-card-dismissed";
+
+function EmailCadastroCard({ me }: { me: Participant }) {
+  const { participants, updateParticipantEmail } = useStore();
+  const [dismissed, setDismissed] = useState(() => {
+    const ts = localStorage.getItem(EMAIL_DISMISSED_KEY);
+    return ts ? Date.now() - parseInt(ts) < 7 * 24 * 60 * 60 * 1000 : false;
+  });
+  const [open, setOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Verifica se o participante já tem email registrado (usando lista do store,
+  // que é atualizada após updateParticipantEmail → refresh).
+  const myRecord = participants.find((p) => p.id === me.id);
+  const hasEmail = Boolean(myRecord?.email || me.email);
+
+  if (dismissed || hasEmail || done) return null;
+
+  function dismiss() {
+    setDismissed(true);
+    localStorage.setItem(EMAIL_DISMISSED_KEY, String(Date.now()));
+  }
+
+  async function handleSave() {
+    const email = emailInput.trim();
+    if (!email || !email.includes("@")) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await updateParticipantEmail(me.id, email);
+      setDone(true);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("already") || msg.includes("taken"))
+        setErr("Esse email já está em uso. Tente outro.");
+      else setErr("Não consegui salvar. Verifique o email e tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-4 mt-2 rounded-xl border border-[var(--accent-ring)] bg-[var(--accent-muted)] p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold text-[var(--t1)]">
+          Cadastre um email de recuperação
+        </p>
+        <button
+          onClick={dismiss}
+          aria-label="Fechar"
+          className="shrink-0 text-lg leading-none text-[var(--t3)] transition-colors active:text-[var(--t1)]"
+        >
+          ×
+        </button>
+      </div>
+      <p className="mt-0.5 text-xs text-[var(--t2)]">
+        Se um dia esquecer sua senha, poderá recuperar pelo email.
+      </p>
+
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="mt-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-[var(--accent-fg)]"
+        >
+          Adicionar email
+        </button>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <input
+            autoFocus
+            type="email"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="seu@email.com"
+            className="flex-1 min-w-0 rounded-lg bg-[var(--bg)] px-3 py-1.5 text-sm text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2"
+          />
+          <button
+            onClick={handleSave}
+            disabled={busy || !emailInput.trim() || !emailInput.includes("@")}
+            className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-[var(--accent-fg)] disabled:opacity-50"
+          >
+            {busy ? "…" : "Salvar"}
+          </button>
+        </div>
+      )}
+      {err && <p className="mt-1 text-xs text-red-400">{err}</p>}
+    </div>
+  );
+}
+
+// ─── Tela de redefinição via link de email (PASSWORD_RECOVERY) ────────────────
+
+const inputRecoveryCls =
+  "rounded-xl bg-[var(--surface)] px-4 py-3 text-lg text-[var(--t1)] outline-none ring-[var(--accent)] placeholder:text-[var(--t3)] focus:ring-2";
+
+function TrocarSenhaRecuperacao() {
+  const { clearRecovery } = useAuth();
+  const [newPass, setNewPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (done) {
+      const t = setTimeout(() => clearRecovery(), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [done, clearRecovery]);
+
+  async function handleSubmit() {
+    if (newPass.length < 4 || newPass !== confirm) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPass });
+      if (error) throw error;
+      setDone(true);
+    } catch {
+      setErr("Não consegui redefinir. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <p className="text-center text-[var(--t1)] text-lg font-semibold">
+          Senha redefinida! Redirecionando…
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6">
+      <div className="text-center">
+        <img src="/icon.svg" alt="" className="mx-auto h-20 w-20 rounded-2xl" />
+        <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--t1)]">
+          Nova senha
+        </h1>
+        <p className="mt-1 text-sm text-[var(--t2)]">
+          Escolha uma nova senha para sua conta.
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        <input
+          autoFocus
+          type="password"
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+          placeholder="Nova senha (mín. 4 caracteres)"
+          className={inputRecoveryCls}
+        />
+        <input
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          placeholder="Confirmar nova senha"
+          className={inputRecoveryCls}
+        />
+        {newPass && confirm && newPass !== confirm && (
+          <p className="text-sm text-red-400">As senhas não coincidem.</p>
+        )}
+        {err && <p className="text-sm text-red-400">{err}</p>}
+        <button
+          onClick={handleSubmit}
+          disabled={busy || newPass.length < 4 || newPass !== confirm}
+          className="rounded-2xl bg-[var(--accent)] py-3 font-bold text-[var(--accent-fg)] transition-all disabled:bg-[var(--raised)] disabled:text-[var(--t3)]"
+        >
+          {busy ? "Salvando…" : "Definir nova senha"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
 
 function Header() {
   const { me, signOut } = useAuth();
@@ -111,6 +302,8 @@ function Header() {
     </header>
   );
 }
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
 
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const { me } = useAuth();
@@ -183,6 +376,8 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
     </nav>
   );
 }
+
+// ─── Telas utilitárias ────────────────────────────────────────────────────────
 
 function TelaCarregando() {
   return (

@@ -1,13 +1,22 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
-import { buildStandings, withRanks } from '../lib/scoring'
+import { buildStandings, withRanks, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
+import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
+import type { SnapshotEntry } from '../lib/rankingSnapshot'
 
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
+function DeltaBadge({ delta }: { delta: number | undefined }) {
+  if (delta == null || delta === 0) return null
+  if (delta > 0)
+    return <span className="tabular-nums text-xs font-bold text-[oklch(62%_0.18_145)]">↑{delta}</span>
+  return <span className="tabular-nums text-xs font-bold text-[oklch(62%_0.22_25)]">↓{Math.abs(delta)}</span>
+}
+
 export default function Ligas() {
-  const { participants, matches, predictions, leagues, leagueMembers, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember } = useStore()
+  const { participants, matches, predictions, leagues, leagueMembers, loading, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember } = useStore()
   const { me } = useAuth()
 
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(
@@ -72,6 +81,29 @@ export default function Ligas() {
   const ranking = useMemo(
     () => withRanks(buildStandings(filteredParticipants, matches, predictions, selectedLeague ? (selectedLeague.starts_at ?? selectedLeague.created_at) : undefined)),
     [filteredParticipants, matches, predictions, selectedLeague],
+  )
+
+  // Snapshot de hoje como baseline do delta, por contexto (global ou liga)
+  const [todaySnapshot, setTodaySnapshot] = useState<SnapshotEntry[] | null>(null)
+
+  useEffect(() => {
+    if (loading || ranking.length === 0) return
+    initTodaySnapshot(ranking, currentLeagueId ?? undefined)
+  }, [loading, ranking, currentLeagueId])
+
+  useEffect(() => {
+    if (loading) return
+    setTodaySnapshot(loadTodaySnapshot(currentLeagueId ?? undefined))
+  }, [loading, currentLeagueId])
+
+  const delta = useMemo(
+    () => (todaySnapshot ? computeRankingDelta(ranking, todaySnapshot) : new Map<string, number>()),
+    [ranking, todaySnapshot],
+  )
+
+  const perfectRound = useMemo(
+    () => getPerfectRoundParticipants(filteredParticipants, matches, predictions),
+    [filteredParticipants, matches, predictions],
   )
 
   const memberCount = selectedLeague
@@ -146,19 +178,25 @@ export default function Ligas() {
                   : 'border-[var(--border)] bg-[var(--surface)]'
               }`}
             >
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                  r.rank === 1
-                    ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
-                    : 'bg-[var(--raised)] text-[var(--t2)]'
-                }`}
-              >
-                {r.rank}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                    r.rank === 1
+                      ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
+                      : 'bg-[var(--raised)] text-[var(--t2)]'
+                  }`}
+                >
+                  {r.rank}
+                </span>
+                <DeltaBadge delta={delta.get(r.participant_id)} />
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-[var(--t1)]">
                   {r.name}
                   {r.participant_id === me?.id && <span className="text-[var(--t3)]"> (você)</span>}
+                  {perfectRound.has(r.participant_id) && (
+                    <span className="ml-1 text-xs" title="Rodada perfeita">🔥</span>
+                  )}
                 </div>
                 <div className="text-xs text-[var(--t3)]">
                   {r.exacts} cravada{r.exacts === 1 ? '' : 's'} · {r.margins} saldo{r.margins === 1 ? '' : 's'} · {r.results} resultado{r.results === 1 ? '' : 's'} ·{' '}
