@@ -11,21 +11,21 @@ PWA focada em celular para um Bolão do Mundo de 2026, com ~30 participantes ati
 - Cada participante palpita o **placar** de cada jogo (ex: 2x1).
 - Pontuação por jogo: **10 / 7 / 5 / 0**
   - **10 pts** — placar exato.
-  - **7 pts** — acertou o resultado e o saldo de gols, mas não o placar exato (ex: palpitou 2×0, terminou 4×2).
-  - **5 pts** — acertou o resultado (quem ganhou/perdeu/empatou), mas errou o saldo.
+  - **7 pts** — acertou o saldo de gols (ex: palpitou 2×0, terminou 4×2) ou previu um empate não-cravado.
+  - **5 pts** — acertou o resultado (quem ganhou/perdeu), mas errou o saldo.
   - **0 pts** — errou o resultado.
 
 ### Regra unificada para todos os jogos (incluindo mata-mata)
 
 A pontuação é sempre calculada sobre o **placar do tempo normal**. Prorrogação e pênaltis são ignorados.
 
-- Se o jogo foi para pênaltis após empate no tempo normal: quem palpitou empate ganha 5 pts. Quem palpitou vitória de qualquer time ganha 0 pts.
+- Se o jogo foi para pênaltis após empate no tempo normal: quem palpitou empate ganha 7 pts (pela regra de empate não-cravado). Quem palpitou vitória de qualquer time ganha 0 pts.
 - Não existe bônus por acertar o time que avança via pênaltis.
 
 ### Desempate no ranking
 
 1. Mais placares exatos (cravadas de 10 pts).
-2. Mais saldos certos (7 pts).
+2. Mais saldos certos ou empates (7 pts).
 3. Mais acertos de resultado (5 pts).
 4. Se ainda empatar → posição compartilhada.
 

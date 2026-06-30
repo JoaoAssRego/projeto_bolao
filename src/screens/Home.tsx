@@ -253,7 +253,7 @@ export default function Home() {
         )}
 
         <p className="px-1 pt-1 text-xs text-[var(--t3)]">
-          Desempate: mais cravadas (10 pts) → mais saldos certos (7 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
+          Desempate: mais cravadas (10 pts) → mais saldos certos ou empates (7 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
         </p>
       </div>
 

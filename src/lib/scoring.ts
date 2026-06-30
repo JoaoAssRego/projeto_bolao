@@ -14,10 +14,9 @@ export function hasResult(match: Match): boolean {
 /**
  * Pontuação de um palpite num jogo, segundo as regras do bolão:
  *  - 10 pts: placar exato (pênaltis ignorados para o placar).
- *  - 7 pts: diferença de gols exata (saldo certo, não é empate).
- *  - Fase de grupos: 5 pts se acertou o resultado (vitória/empate/derrota).
+ *  - 7 pts: diferença de gols exata (saldo certo) ou empate não-cravado.
+ *  - Fase de grupos: 5 pts se acertou o resultado (vitória/derrota).
  *  - Mata-mata: 5 pts se o time favorecido no palpite foi quem avançou.
- *    (palpite de empate no mata-mata não pode ganhar os 5.)
  *  - 0 pts caso contrário.
  * Retorna null se o jogo ainda não tem resultado.
  */
@@ -30,8 +29,8 @@ export function scoreFor(pred: Prediction | undefined, match: Match): number | n
 
   const predDiff = pred.home_score - pred.away_score
   const realDiff = (match.home_score as number) - (match.away_score as number)
-  // Saldo exato: mesma margem de vitória, não serve para empate (saldo 0 = acertar resultado)
-  if (predDiff !== 0 && predDiff === realDiff) return 7
+  // Saldo exato: mesma margem de vitória ou empate não-cravado (saldo 0)
+  if (predDiff === realDiff) return 7
 
   if (match.stage === 'group') {
     const predSign = Math.sign(predDiff)
@@ -43,8 +42,9 @@ export function scoreFor(pred: Prediction | undefined, match: Match): number | n
   const matchDraw = (match.home_score as number) === (match.away_score as number)
   if (matchDraw) {
     // Placar empatado → jogo foi para pênaltis.
-    // Quem avançou não conta: apenas palpite de empate vale 5 pts.
-    return pred.home_score === pred.away_score ? 5 : 0
+    // Palpite de empate já foi capturado na regra de 7 pts (saldo exato = 0).
+    // Se chegou aqui, não é palpite de empate.
+    return 0
   }
   // Placar decidido (tempo normal ou prorrogação): empate palpitado não favorece ninguém.
   if (pred.home_score === pred.away_score) return 0

@@ -95,8 +95,8 @@ Aba **Admin**:
 
 ## Regras do bolão (resumo)
 
-- Palpite de placar. **10** pts placar exato · **5** pts acerto de resultado · **0** pts erro.
-- Mata-mata: pênaltis não contam para o placar; os 5 pts vão para quem favoreceu o time que avançou.
+- Palpite de placar. **10** pts placar exato · **7** pts saldo certo ou empate · **5** pts acerto de resultado · **0** pts erro.
+- Mata-mata: pênaltis não contam para o placar; os 5 pts vão para quem favoreceu o time que avançou. Palpite de empate ganha 7 pts.
 - Palpite **trava no início do jogo**; quem não palpitou leva 0. Palpites ficam ocultos até travar, depois todos veem.
 - Desempate: mais cravadas → mais acertos de resultado → posição compartilhada.
 

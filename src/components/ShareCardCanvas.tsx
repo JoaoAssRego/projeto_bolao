@@ -27,7 +27,7 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
       pts === 10
         ? '✅ Placar exato! +10 pts'
         : pts === 7
-          ? '✅ Saldo certo! +7 pts'
+          ? '✅ Saldo ou empate! +7 pts'
           : pts === 5
             ? '✅ Resultado certo! +5 pts'
             : pts === 0

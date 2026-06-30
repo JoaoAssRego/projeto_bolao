@@ -119,7 +119,7 @@ A night-lit pitch with one lamp on. The surface stack is four steps of the same 
 ### Secondary
 
 - **Verde Certo** (`oklch(55% 0.135 155)`): Correct-prediction green. Used exclusively for the "Salvo ✓" button confirmation state and 5-point badges. It means "you got the result right." Not a UI accent; a semantic event.
-- **Quase Certo** (`oklch(75% 0.18 120)`): Yellow-green for 7-point badges. Used exclusively for the 7 pts reward — "you got the result and the margin, but not the exact score." Sits between the yellow of perfection and the green of a correct call.
+- **Quase Certo** (`oklch(75% 0.18 120)`): Yellow-green for 7-point badges. Used exclusively for the 7 pts reward — "you got the result and the margin (or non-exact tie), but not the exact score." Sits between the yellow of perfection and the green of a correct call.
 
 ### Tertiary
 
@@ -227,7 +227,7 @@ The primary score-entry mechanism. A vertical number roller: drag up to increase
 Inline reward indicator shown next to each prediction after reveal.
 
 - **10 pts:** `background: var(--accent)`, `color: var(--accent-fg)` — exact score, maximum reward.
-- **7 pts:** `background: var(--near-perfect)`, `color: var(--near-perfect-fg)` — correct result and goal margin, near miss on exact score.
+- **7 pts:** `background: var(--near-perfect)`, `color: var(--near-perfect-fg)` — correct margin or non-exact draw, near miss on exact score.
 - **5 pts:** `background: var(--ok)`, `color: var(--ok-fg)` — correct result only.
 - **0 pts:** `background: var(--raised)`, `color: var(--t3)` — no credit, muted.
 - **Shape:** 6px radius, 48px fixed width, padding 2px / 8px, 12px bold centered text.
