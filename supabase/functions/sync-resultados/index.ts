@@ -431,7 +431,7 @@ Deno.serve(async (req) => {
         if (m.score.duration !== 'PENALTY_SHOOTOUT') {
           let home = m.score.fullTime.home as number
           let away = m.score.fullTime.away as number
-          if (swapped) ;[home, away] = [away, home]
+          if (swapped) { [home, away] = [away, home] }
           patch.home_score = home
           patch.away_score = away
         }
