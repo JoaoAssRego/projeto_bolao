@@ -5,6 +5,7 @@ import { useAuth } from '../data/auth'
 import { buildStandings, withRanks, isLocked, hasResult, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
 import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
 import type { SnapshotEntry } from '../lib/rankingSnapshot'
+import RulesModal from '../components/RulesModal'
 
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
@@ -39,6 +40,7 @@ export default function Home() {
 
   // Liga ativa: lê do localStorage no mount, valida que o usuário ainda é membro aceito
   const [savedLeagueId] = useState(() => localStorage.getItem(LAST_LEAGUE_KEY))
+  const [showRules, setShowRules] = useState(false)
 
   const currentLeague = useMemo(() => {
     if (!savedLeagueId || !me) return null
@@ -252,9 +254,19 @@ export default function Home() {
           </ol>
         )}
 
-        <p className="px-1 pt-1 text-xs text-[var(--t3)]">
-          Desempate: mais cravadas (10 pts) → mais saldos certos ou empates (7 pts) → mais acertos de resultado (5 pts) → posição compartilhada.
-        </p>
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={() => setShowRules(true)}
+            className="flex items-center gap-1.5 rounded-full bg-[var(--raised)] px-4 py-1.5 text-xs font-semibold text-[var(--t2)] transition-colors hover:text-[var(--t1)] active:bg-[var(--border)]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Como funciona a pontuação?
+          </button>
+        </div>
       </div>
 
       {nextMatches.length > 0 && (
@@ -283,6 +295,10 @@ export default function Home() {
             ))}
           </div>
         </div>
+      )}
+
+      {showRules && (
+        <RulesModal onClose={() => setShowRules(false)} />
       )}
     </div>
   )

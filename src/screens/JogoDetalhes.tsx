@@ -7,12 +7,14 @@ import { isKnockout, STAGE_LABEL } from '../lib/types'
 import { hasResult, scoreFor } from '../lib/scoring'
 import { formatDate, formatTime } from '../lib/format'
 import { getFlag } from '../lib/countryFlags'
+import RulesModal from '../components/RulesModal'
 
 export default function JogoDetalhes() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { me } = useAuth()
   const { matches, predictions, participants, leagues, leagueMembers } = useStore()
+  const [showRules, setShowRules] = useState(false)
 
   const match = matches.find((m) => m.id === id)
 
@@ -36,17 +38,30 @@ export default function JogoDetalhes() {
   return (
     <div className="flex flex-col gap-4">
       {/* Back header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--raised)] text-[var(--t2)] transition-colors active:bg-[var(--border)]"
+            aria-label="Voltar"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <span className="text-sm font-semibold text-[var(--t2)]">Detalhes do Jogo</span>
+        </div>
         <button
-          onClick={() => navigate(-1)}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--raised)] text-[var(--t2)] transition-colors active:bg-[var(--border)]"
-          aria-label="Voltar"
+          onClick={() => setShowRules(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--raised)] text-[var(--t2)] transition-colors hover:text-[var(--t1)] active:bg-[var(--border)]"
+          aria-label="Regras de Pontuação"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
         </button>
-        <span className="text-sm font-semibold text-[var(--t2)]">Detalhes do Jogo</span>
       </div>
 
       {/* Match info card */}
@@ -61,6 +76,10 @@ export default function JogoDetalhes() {
         leagues={myLeagues}
         leagueMembers={leagueMembers}
       />
+
+      {showRules && (
+        <RulesModal onClose={() => setShowRules(false)} />
+      )}
     </div>
   )
 }
