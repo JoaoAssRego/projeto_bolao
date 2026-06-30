@@ -6,7 +6,8 @@ interface Props {
 }
 
 export default function DrumPicker({ value, onChange, disabled, ariaLabel }: Props) {
-  const n = value === '' ? 0 : value
+  const empty = value === ''
+  const n = empty ? 0 : value
 
   return (
     <div
@@ -26,8 +27,8 @@ export default function DrumPicker({ value, onChange, disabled, ariaLabel }: Pro
       >
         <ChevronUp />
       </button>
-      <span className="text-[42px] font-extrabold leading-none w-[52px] text-center tabular-nums text-[var(--accent)]">
-        {n}
+      <span className={`text-[42px] font-extrabold leading-none w-[52px] text-center tabular-nums ${empty ? 'text-[var(--t3)]' : 'text-[var(--accent)]'}`}>
+        {empty ? '–' : n}
       </span>
       <button
         type="button"
