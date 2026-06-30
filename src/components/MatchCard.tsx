@@ -161,21 +161,20 @@ function TeamLabel({ name, code, align }: { name: string | null; code: string | 
 
 /* Edit mode: flag + name + drum on each side, inline */
 function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction; onSave: (h: number, a: number) => Promise<void> }) {
-  const [home, setHome] = useState<number | ''>(initial ? initial.home_score : '')
-  const [away, setAway] = useState<number | ''>(initial ? initial.away_score : '')
+  const [home, setHome] = useState(initial ? initial.home_score : 0)
+  const [away, setAway] = useState(initial ? initial.away_score : 0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [isEditing, setIsEditing] = useState(!initial)
 
-  const canSave = home !== '' && away !== '' && !saving
+  const canSave = !saving
   const homeFlag = getFlag(match.home_team_code, match.home_team)
   const awayFlag = getFlag(match.away_team_code, match.away_team)
 
   async function handleSave() {
-    if (home === '' || away === '') return
     setSaving(true)
     try {
-      await onSave(Number(home), Number(away))
+      await onSave(home, away)
       setSaved(true)
       setTimeout(() => {
         setSaved(false)

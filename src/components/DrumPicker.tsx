@@ -1,18 +1,16 @@
 interface Props {
-  value: number | ''
+  value: number
   onChange: (v: number) => void
   disabled?: boolean
   ariaLabel?: string
 }
 
 export default function DrumPicker({ value, onChange, disabled, ariaLabel }: Props) {
-  const n = value === '' ? 0 : value
-
   return (
     <div
       role="spinbutton"
       aria-label={ariaLabel}
-      aria-valuenow={n}
+      aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={20}
       className={`flex flex-col items-center select-none ${disabled ? 'opacity-40' : ''}`}
@@ -20,19 +18,19 @@ export default function DrumPicker({ value, onChange, disabled, ariaLabel }: Pro
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && onChange(Math.min(20, n + 1))}
+        onClick={() => !disabled && onChange(Math.min(20, value + 1))}
         className="p-3 text-[var(--t3)] hover:text-[var(--accent)] active:text-[var(--accent)] transition-colors disabled:pointer-events-none"
         aria-label="aumentar"
       >
         <ChevronUp />
       </button>
       <span className="text-[42px] font-extrabold leading-none w-[52px] text-center tabular-nums text-[var(--accent)]">
-        {n}
+        {value}
       </span>
       <button
         type="button"
-        disabled={disabled || n <= 0}
-        onClick={() => !disabled && onChange(Math.max(0, n - 1))}
+        disabled={disabled || value <= 0}
+        onClick={() => !disabled && onChange(Math.max(0, value - 1))}
         className="p-3 text-[var(--t3)] hover:text-[var(--accent)] active:text-[var(--accent)] transition-colors disabled:pointer-events-none disabled:opacity-30"
         aria-label="diminuir"
       >
