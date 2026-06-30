@@ -22,6 +22,7 @@ interface ApiMatch {
   awayTeam: ApiTeam
   score: {
     winner: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null
+    duration: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null
     fullTime: { home: number | null; away: number | null }
     halfTime: { home: number | null; away: number | null }
   }
@@ -127,6 +128,13 @@ Deno.serve(async () => {
       m.score.fullTime.home != null &&
       m.score.fullTime.away != null
     ) {
+      // Durante a disputa de pênaltis a API pode reportar os gols do shootout em
+      // score.fullTime, corrompendo o placar da partida. Ignoramos atualizações
+      // parciais nessa fase — o placar correto já foi salvo ao final da prorrogação.
+      if (m.score.duration === 'PENALTY_SHOOTOUT') {
+        result.ignorados++
+        continue
+      }
       // Jogo em andamento: atualiza o placar parcial SEM marcar como finalizado.
       patch.home_score = m.score.fullTime.home
       patch.away_score = m.score.fullTime.away

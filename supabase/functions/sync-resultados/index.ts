@@ -235,6 +235,7 @@ interface ApiMatch {
   awayTeam: ApiTeam
   score: {
     winner: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null
+    duration: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null
     fullTime: { home: number | null; away: number | null }
   }
 }
@@ -414,18 +415,27 @@ Deno.serve(async (req) => {
       if (target.finished && target.result_source === 'manual') {
         result.preservadosManuais++
       } else {
-        let home = m.score.fullTime.home as number
-        let away = m.score.fullTime.away as number
         let advancer: 'home' | 'away' | null =
           m.score.winner === 'HOME_TEAM' ? 'home' : m.score.winner === 'AWAY_TEAM' ? 'away' : null
         if (swapped) {
-          ;[home, away] = [away, home]
           if (advancer === 'home') advancer = 'away'
           else if (advancer === 'away') advancer = 'home'
         }
         if (stage === 'group') advancer = null
-        patch.home_score = home
-        patch.away_score = away
+
+        // Quando a partida foi decidida nos pênaltis, score.fullTime pode refletir
+        // o placar acumulado do shootout em vez do placar do tempo normal/prorrogação.
+        // Preservamos o placar já salvo (set durante o jogo) e apenas finalizamos
+        // o registro com advancer correto. Se home_score ainda for null (nunca
+        // atualizado ao vivo), o admin deverá lançar o placar manualmente.
+        if (m.score.duration !== 'PENALTY_SHOOTOUT') {
+          let home = m.score.fullTime.home as number
+          let away = m.score.fullTime.away as number
+          if (swapped) ;[home, away] = [away, home]
+          patch.home_score = home
+          patch.away_score = away
+        }
+
         patch.advancer = advancer
         patch.finished = true
         patch.result_source = 'api'

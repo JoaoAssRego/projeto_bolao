@@ -40,7 +40,14 @@ export function scoreFor(pred: Prediction | undefined, match: Match): number | n
   }
 
   // Mata-mata
-  if (pred.home_score === pred.away_score) return 0 // empate palpitado: não favorece ninguém
+  const matchDraw = (match.home_score as number) === (match.away_score as number)
+  if (matchDraw) {
+    // Placar empatado → jogo foi para pênaltis.
+    // Quem avançou não conta: apenas palpite de empate vale 5 pts.
+    return pred.home_score === pred.away_score ? 5 : 0
+  }
+  // Placar decidido (tempo normal ou prorrogação): empate palpitado não favorece ninguém.
+  if (pred.home_score === pred.away_score) return 0
   const favored: 'home' | 'away' = pred.home_score > pred.away_score ? 'home' : 'away'
   return match.advancer === favored ? 5 : 0
 }
