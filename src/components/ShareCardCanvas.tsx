@@ -19,9 +19,11 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
     const ptsColor =
       pts === 10
         ? 'oklch(87% 0.195 95)'
-        : pts === 5
-          ? 'oklch(57% 0.140 155)'
-          : 'oklch(55% 0.018 155)'
+        : pts === 7
+          ? 'oklch(80% 0.16 80)'
+          : pts === 5
+            ? 'oklch(57% 0.140 155)'
+            : 'oklch(55% 0.018 155)'
 
     const ptsLabel =
       pts === 10

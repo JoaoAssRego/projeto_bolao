@@ -1,5 +1,5 @@
 export type CardTone = 'neutro' | 'provocador' | 'selvagem'
-export type CardContext = 'pre' | 'post-exact' | 'post-result' | 'post-zero'
+export type CardContext = 'pre' | 'post-exact' | 'post-seven' | 'post-result' | 'post-zero'
 
 const PHRASES: Record<CardContext, Record<CardTone, string[]>> = {
   pre: {
@@ -55,6 +55,20 @@ const PHRASES: Record<CardContext, Record<CardTone, string[]>> = {
       'ERREI TUDO. Mas ainda tô no jogo. 😤',
     ],
   },
+  'post-seven': {
+    neutro: [
+      'Empate ou saldo. 7 pontos na conta.',
+      'Na trave do placar exato. 7 pontos.',
+    ],
+    provocador: [
+      '7 pontos no bolso. Melhor que vocês. 😏',
+      'Faltou pouco pro exato. 7 pontos tá ótimo. 😏',
+    ],
+    selvagem: [
+      '7 pontos! O pai tá on. 💪',
+      'Quase em cheio! Segura meus 7 pontos. 😤',
+    ],
+  },
 }
 
 export function getPhrase(context: CardContext, tone: CardTone): string {
@@ -64,6 +78,7 @@ export function getPhrase(context: CardContext, tone: CardTone): string {
 
 export function contextFromPts(pts: number | null): Exclude<CardContext, 'pre'> {
   if (pts === 10) return 'post-exact'
+  if (pts === 7) return 'post-seven'
   if (pts === 5) return 'post-result'
   return 'post-zero'
 }

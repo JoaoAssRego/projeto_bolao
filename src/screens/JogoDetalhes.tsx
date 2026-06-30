@@ -263,8 +263,10 @@ function PointsBadge({ pts }: { pts: number | null }) {
   const color =
     pts === 10
       ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
-      : pts === 5
-        ? 'bg-[var(--ok)] text-[var(--ok-fg)]'
-        : 'bg-[var(--raised)] text-[var(--t3)]'
+      : pts === 7
+        ? 'bg-amber-400 text-white'
+        : pts === 5
+          ? 'bg-[var(--ok)] text-[var(--ok-fg)]'
+          : 'bg-[var(--raised)] text-[var(--t3)]'
   return <span className={`w-12 rounded-md px-2 py-0.5 text-center text-xs font-bold ${color}`}>{pts} pts</span>
 }
