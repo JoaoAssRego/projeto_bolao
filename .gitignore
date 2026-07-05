@@ -10,3 +10,6 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 dev-dist
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

@@ -1,22 +1,11 @@
 import { useState, useEffect } from 'react'
+import { isIOS, isStandalone } from './platform'
 
 const DISMISSED_KEY = 'pwa-install-dismissed'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
-function isIOS(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) &&
-    !(window as unknown as { MSStream?: unknown }).MSStream
-}
-
-function isStandalone(): boolean {
-  return (
-    (navigator as unknown as { standalone?: boolean }).standalone === true ||
-    window.matchMedia('(display-mode: standalone)').matches
-  )
 }
 
 export function usePWAInstall() {
