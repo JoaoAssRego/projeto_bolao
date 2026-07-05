@@ -5,6 +5,15 @@
 declare const self: ServiceWorkerGlobalScope
 
 import { precacheAndRoute } from 'workbox-precaching'
+import { clientsClaim } from 'workbox-core'
+
+// injectManifest não ativa skipWaiting/clientsClaim sozinho (diferente do
+// generateSW). Sem isso, ao trocar de estratégia (generateSW → injectManifest)
+// o novo SW fica em "waiting" indefinidamente enquanto a aba antiga estiver
+// aberta, e `navigator.serviceWorker.ready` nunca resolve — travando o botão
+// "Ativar" das notificações push em "Ativando..." para sempre.
+self.skipWaiting()
+clientsClaim()
 
 precacheAndRoute(self.__WB_MANIFEST)
 

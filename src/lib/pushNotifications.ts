@@ -14,6 +14,16 @@ function isSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
+// Evita travar o botão para sempre: `serviceWorker.ready` pode nunca resolver
+// se o navegador ainda estiver com um service worker antigo preso em "waiting"
+// (ex.: logo após trocar a estratégia do SW, antes do usuário reabrir o app).
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ])
+}
+
 // https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe — a
 // applicationServerKey precisa ser um Uint8Array, não a string base64url da VAPID key.
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -54,7 +64,11 @@ export function usePushNotifications(participantId: string | null) {
         return
       }
 
-      const registration = await navigator.serviceWorker.ready
+      const registration = await withTimeout(
+        navigator.serviceWorker.ready,
+        10000,
+        'O app está com uma versão antiga em cache. Feche o app totalmente (não só minimize) e abra de novo, depois tente ativar outra vez.',
+      )
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
