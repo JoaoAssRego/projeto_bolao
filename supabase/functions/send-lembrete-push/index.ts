@@ -16,7 +16,7 @@
 // ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import webpush from 'npm:web-push@3.6.7'
+import { setVapidDetails, sendToSubscriptions, type PushSubscriptionRow } from '../_shared/webpush.ts'
 
 const REMINDER_WINDOW_MINUTES = 15
 
@@ -25,14 +25,6 @@ interface DbMatch {
   home_team: string | null
   away_team: string | null
   kickoff: string
-}
-
-interface DbSubscription {
-  id: string
-  participant_id: string
-  endpoint: string
-  p256dh: string
-  auth_key: string
 }
 
 function json(body: unknown, status = 200): Response {
@@ -79,7 +71,7 @@ Deno.serve(async (req) => {
 
   if (!(await isAuthorized(req, supabaseUrl))) return json({ error: 'Não autorizado.' }, 401)
 
-  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
+  setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
@@ -125,39 +117,25 @@ Deno.serve(async (req) => {
         .select('id, participant_id, endpoint, p256dh, auth_key')
       if (subsErr) throw new SyncError('Falha ao ler push_subscriptions.', 500, subsErr.message)
 
-      const targets = ((subscriptions ?? []) as DbSubscription[]).filter((s) => !excluded.has(s.participant_id))
+      const targets = ((subscriptions ?? []) as PushSubscriptionRow[]).filter((s) => !excluded.has(s.participant_id))
       if (targets.length === 0) continue
 
       const label = match.home_team && match.away_team ? `${match.home_team} x ${match.away_team}` : 'Seu jogo'
-      const payload = JSON.stringify({
+      const payload = {
         title: `⏰ ${label} fecha em breve`,
         body: 'Você ainda não palpitou. Toque para palpitar agora.',
         url: '/jogos',
-      })
+      }
 
-      for (const sub of targets) {
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-            payload,
-          )
-          result.lembretesEnviados++
-        } catch (e) {
-          const statusCode = (e as { statusCode?: number }).statusCode
-          if (statusCode === 404 || statusCode === 410) {
-            await supabase.from('push_subscriptions').delete().eq('id', sub.id)
-            result.inscricoesExpiradas++
-          } else {
-            // Falha transitória (rede, 429, etc.): não marca como enviado,
-            // deixa para a próxima execução do cron tentar de novo.
-            result.ignorados++
-            continue
-          }
-        }
+      const { stats, processedParticipantIds } = await sendToSubscriptions(supabase, targets, () => payload)
+      result.lembretesEnviados += stats.enviados
+      result.inscricoesExpiradas += stats.inscricoesExpiradas
+      result.ignorados += stats.ignorados
 
-        // Marca como processado (sucesso ou inscrição expirada) para nunca reenviar.
+      // Marca como processado (sucesso ou inscrição expirada) para nunca reenviar.
+      for (const participantId of processedParticipantIds) {
         await supabase.from('push_reminders_sent').upsert(
-          { match_id: match.id, participant_id: sub.participant_id },
+          { match_id: match.id, participant_id: participantId },
           { onConflict: 'match_id,participant_id' },
         )
       }
