@@ -4,13 +4,6 @@ import { supabase } from './supabase'
 const DISMISSED_KEY = 'push-notif-dismissed'
 const SUBSCRIBED_KEY = 'push-notif-subscribed'
 
-function isStandalone(): boolean {
-  return (
-    (navigator as unknown as { standalone?: boolean }).standalone === true ||
-    window.matchMedia('(display-mode: standalone)').matches
-  )
-}
-
 function isSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
@@ -45,7 +38,11 @@ export function usePushNotifications(participantId: string | null) {
     if (!participantId) return
     if (localStorage.getItem(DISMISSED_KEY)) return
     if (localStorage.getItem(SUBSCRIBED_KEY)) return
-    if (!isStandalone() || !isSupported()) return
+    // Não exige modo standalone: no Android, o Chrome às vezes não consegue
+    // mostrar o popup de permissão de notificação dentro do app instalado
+    // (não há barra de endereço pra exibir o indicador). Deixar disponível
+    // também numa aba normal do Chrome evita esse beco sem saída.
+    if (!isSupported()) return
     // Permissão "granted" não significa que a inscrição foi salva com sucesso
     // (pode ter falhado depois, ex.: erro do serviço de push) — só "denied"
     // bloqueia de verdade tentar de novo.
