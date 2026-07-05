@@ -64,18 +64,26 @@ Como funciona: uma **Edge Function** no Supabase chama a API e mantém a tabela 
 
 Só são criados jogos que **ainda não começaram** — jogos já ocorridos antes do bolão entrar no ar ficam de fora (não dá pra apostar no passado).
 
+Duas Edge Functions trabalham juntas: `sync-resultados` (a cada 30 min) cria/vincula os jogos e grava o placar final; `sync-ao-vivo` (a cada minuto) atualiza o placar parcial dos jogos já em andamento — incluindo prorrogação e pênaltis, já que ela reconsulta o jogo a cada minuto sem prazo máximo, até a API devolver `FINISHED`.
+
 ### Passos
 
 1. **Token grátis:** crie conta em <https://www.football-data.org/client/register> e copie seu token.
-2. **Migração:** no **SQL Editor**, rode [`supabase/migrations/0002_sync_api.sql`](supabase/migrations/0002_sync_api.sql) (adiciona as colunas de apoio ao sync).
-3. **Deploy da função** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
+2. **Migrações:** no **SQL Editor**, rode [`supabase/migrations/0002_sync_api.sql`](supabase/migrations/0002_sync_api.sql) e depois [`supabase/migrations/0009_sync_observability_cron.sql`](supabase/migrations/0009_sync_observability_cron.sql) (colunas de apoio, tabela `sync_logs`, segredo `cron_secret` no Vault e o agendamento via `pg_cron` já embutido — não precisa mais editar/colar SQL de cron à mão).
+3. **Pegue o segredo gerado** (a migration cria um valor aleatório no Vault):
+   ```sql
+   select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret';
+   ```
+4. **Deploy das funções** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```bash
    supabase link --project-ref SEU-REF
    supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
-   supabase functions deploy sync-resultados
+   supabase secrets set CRON_SECRET=<valor copiado do passo 3>
+   supabase functions deploy sync-resultados --no-verify-jwt
+   supabase functions deploy sync-ao-vivo --no-verify-jwt
    ```
-4. **Teste manual** (opcional): `supabase functions invoke sync-resultados` — deve responder um JSON com `criados`, `vinculados` e `placaresAtualizados`.
-5. **Agende:** edite [`supabase/sync_cron.sql`](supabase/sync_cron.sql) trocando `<SEU-REF>` e `<SUA-ANON-KEY>`, e rode no SQL Editor.
+   O `--no-verify-jwt` é necessário porque as funções passam a fazer sua própria checagem de autorização (header `x-cron-secret` para o pg_cron, ou sessão de admin logado para o botão manual no Admin) em vez de depender só de uma anon key válida.
+5. **Teste manual** (opcional): `supabase functions invoke sync-resultados` — deve responder um JSON com `criados`, `vinculados` e `placaresAtualizados`.
 
 ### Bom saber
 
@@ -84,6 +92,35 @@ Só são criados jogos que **ainda não começaram** — jogos já ocorridos ant
 - **Nomes:** os jogos criados saem em português via um mapa PT↔EN dentro de [`supabase/functions/sync-resultados/index.ts`](supabase/functions/sync-resultados/index.ts) (constantes `TEAMS` e `PT_DISPLAY`). Time fora do mapa aparece com o nome em inglês — é só acrescentar ao mapa.
 - **Retorno da função:** o `invoke` devolve um JSON com `criados`, `vinculados`, `placaresAtualizados`, `preservadosManuais` e `ignoradosPassados` — útil pra conferir o que rolou.
 - **Selo:** resultados vindos da API aparecem com 🔄 (no card do jogo e no painel de Resultados).
+- **Diagnóstico do sync:** `select * from sync_logs order by created_at desc limit 20;` mostra o histórico de execuções (sucesso/erro/skipped) de cada função — serve de heartbeat: se parar de crescer, o cron parou de disparar. `select * from cron.job_run_details order by start_time desc limit 20;` mostra se o `pg_cron` está dispachando as chamadas (mas não garante que a chamada HTTP teve sucesso — só que foi enfileirada).
+
+## Notificações push (opcional)
+
+Manda um lembrete via Web Push quando um jogo em que o participante não palpitou está a até 15 min de travar — funciona mesmo com o app fechado, desde que ele tenha instalado o PWA e aceitado a permissão de notificação (card "Ativar lembretes de palpite" na tela Jogos).
+
+Como funciona: a Edge Function `send-lembrete-push` roda a cada 5 min via `pg_cron`, olha os jogos que travam em breve, cruza com quem ainda não palpitou e tem uma inscrição push salva, e envia via `web-push` (protocolo VAPID). Cada participante só recebe um lembrete por jogo (tabela `push_reminders_sent` evita duplicidade).
+
+### Passos
+
+1. **Migração:** no **SQL Editor**, rode [`supabase/migrations/0010_push_notifications.sql`](supabase/migrations/0010_push_notifications.sql) (tabelas `push_subscriptions`/`push_reminders_sent` e o agendamento via `pg_cron`).
+2. **Par de chaves VAPID** (uma vez só):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+3. **Segredos e deploy** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
+   ```bash
+   supabase secrets set VAPID_PUBLIC_KEY=<chave pública>
+   supabase secrets set VAPID_PRIVATE_KEY=<chave privada>
+   supabase secrets set VAPID_SUBJECT=mailto:seu-email@exemplo.com
+   supabase functions deploy send-lembrete-push --no-verify-jwt
+   ```
+4. **Frontend:** adicione `VITE_VAPID_PUBLIC_KEY=<chave pública>` no `.env` local e nas variáveis de ambiente da Vercel, depois rode `npm run build`/redeploy.
+
+### Bom saber
+
+- Sem a chave `VITE_VAPID_PUBLIC_KEY` configurada, o card de opt-in simplesmente não aparece — a feature fica invisível até o setup ser concluído.
+- O opt-in só aparece para quem já instalou o PWA (modo standalone) — em iOS isso também exige iOS 16.4+.
+- Diagnóstico: `select * from sync_logs where function_name = 'send-lembrete-push' order by created_at desc limit 20;`.
 
 ## Como o admin opera durante a Copa
 

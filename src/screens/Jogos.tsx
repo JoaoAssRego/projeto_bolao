@@ -3,6 +3,7 @@ import { useStore } from '../data/store'
 import { useAuth } from '../data/auth'
 import MatchCard from '../components/MatchCard'
 import PWAInstallCard from '../components/PWAInstallCard'
+import NotificationOptInCard from '../components/NotificationOptInCard'
 import { isLocked, hasResult } from '../lib/scoring'
 import type { Match } from '../lib/types'
 
@@ -98,6 +99,7 @@ export default function Jogos() {
   return (
     <div className="flex flex-col gap-3">
       <PWAInstallCard />
+      <NotificationOptInCard />
       {/* Barra de datas deslizável */}
       <div
         ref={scrollRef}

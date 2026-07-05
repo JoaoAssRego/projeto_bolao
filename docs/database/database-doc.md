@@ -89,3 +89,29 @@
 | `use_count`  | `int4`        |             |
 | `is_revoked` | `bool`        |             |
 | `created_at` | `timestamptz` |             |
+
+## Table `push_subscriptions`
+
+### Columns
+
+| Name             | Type          | Constraints |
+| ---------------- | ------------- | ----------- |
+| `id`             | `uuid`        | Primary     |
+| `participant_id` | `uuid`        |             |
+| `endpoint`       | `text`        | Unique      |
+| `p256dh`         | `text`        |             |
+| `auth_key`       | `text`        |             |
+| `user_agent`     | `text`        | Nullable    |
+| `created_at`     | `timestamptz` |             |
+
+## Table `push_reminders_sent`
+
+### Columns
+
+| Name             | Type          | Constraints                     |
+| ---------------- | ------------- | -------------------------------- |
+| `id`             | `int8`        | Primary                          |
+| `match_id`       | `uuid`        |                                   |
+| `participant_id` | `uuid`        |                                   |
+| `sent_at`        | `timestamptz` |                                   |
+|                  |               | Unique (`match_id`, `participant_id`) |

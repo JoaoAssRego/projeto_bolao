@@ -95,9 +95,9 @@ Após a revelação de um resultado, o participante pode gerar uma imagem com se
 
 ## Notificações
 
-- **Sem Web Push.**
+- **Web Push** para o lembrete de fechamento: quando um jogo em que o participante não palpitou está a até 15 min de travar, ele recebe uma notificação push (mesmo com o app fechado), desde que tenha instalado o PWA e ativado a permissão. Requer opt-in explícito (card "Ativar lembretes de palpite" na tela Jogos).
 - Avisos dentro do app: badge na aba Jogos indica quantos jogos do dia ainda não têm palpite.
-- Lembretes externos via WhatsApp.
+- Lembretes externos via WhatsApp continuam como reforço complementar.
 
 ## Modelo de dados
 

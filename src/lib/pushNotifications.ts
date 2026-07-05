@@ -1,0 +1,83 @@
+import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
+
+const DISMISSED_KEY = 'push-notif-dismissed'
+
+function isStandalone(): boolean {
+  return (
+    (navigator as unknown as { standalone?: boolean }).standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches
+  )
+}
+
+function isSupported(): boolean {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe — a
+// applicationServerKey precisa ser um Uint8Array, não a string base64url da VAPID key.
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  const bytes = new Uint8Array(new ArrayBuffer(raw.length))
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  return bytes
+}
+
+export function usePushNotifications(participantId: string | null) {
+  const [showCard, setShowCard] = useState(false)
+
+  useEffect(() => {
+    if (!participantId) return
+    if (localStorage.getItem(DISMISSED_KEY)) return
+    if (!isStandalone() || !isSupported()) return
+    if (Notification.permission !== 'default') return
+    setShowCard(true)
+  }, [participantId])
+
+  async function subscribe() {
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+    if (!participantId || !vapidKey) {
+      dismiss()
+      return
+    }
+
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') {
+      dismiss()
+      return
+    }
+
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    })
+    const json = subscription.toJSON()
+
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      {
+        participant_id: participantId,
+        endpoint: json.endpoint,
+        p256dh: json.keys?.p256dh,
+        auth_key: json.keys?.auth,
+        user_agent: navigator.userAgent,
+      },
+      { onConflict: 'endpoint' },
+    )
+    if (error) {
+      console.error('Falha ao salvar inscrição push:', error.message)
+      return
+    }
+
+    dismiss()
+  }
+
+  function dismiss() {
+    localStorage.setItem(DISMISSED_KEY, '1')
+    setShowCard(false)
+  }
+
+  return { showCard, subscribe, dismiss }
+}

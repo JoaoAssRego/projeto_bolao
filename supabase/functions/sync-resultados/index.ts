@@ -3,12 +3,19 @@
 // Importa os jogos da Copa do Mundo (football-data.org) e mantém a tabela
 // `matches` em dia: CRIA os jogos que ainda vão acontecer (grupos + mata-mata),
 // atualiza times/horário e preenche o PLACAR dos jogos encerrados.
-// Pensada para rodar via pg_cron (ver supabase/sync_cron.sql).
+// Pensada para rodar via pg_cron (ver supabase/migrations/0009_sync_observability_cron.sql).
 //
-// Deploy (terminal):   supabase functions deploy sync-resultados
+// Deploy (terminal):   supabase functions deploy sync-resultados --no-verify-jwt
 // Deploy (painel):     Edge Functions > sync-resultados > Edit > colar > Deploy
 // Segredos:            supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
-//                      (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já vêm do ambiente)
+//                      supabase secrets set CRON_SECRET=<valor gerado em vault.decrypted_secrets>
+//                      (SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já vêm do ambiente)
+//
+// Autorização: aceita a chamada do pg_cron (header x-cron-secret == CRON_SECRET)
+// ou de um admin logado no app (JWT do usuário + current_is_admin() via RPC).
+// Por isso o deploy usa --no-verify-jwt: a checagem é feita aqui dentro, não
+// mais pela verificação padrão de JWT do Supabase (que só exigia uma anon key
+// válida — pública por natureza, não protegia nada de fato).
 //
 // Princípios:
 //  - Só CRIA jogo que ainda NÃO começou (status SCHEDULED/TIMED). Jogos já
@@ -271,6 +278,30 @@ function groupLabel(g: string | null): string | null {
   return m ? `Grupo ${m[1].toUpperCase()}` : null
 }
 
+class SyncError extends Error {
+  status: number
+  detail?: unknown
+  constructor(message: string, status = 500, detail?: unknown) {
+    super(message)
+    this.status = status
+    this.detail = detail
+  }
+}
+
+async function isAuthorized(req: Request, supabaseUrl: string): Promise<boolean> {
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  const headerSecret = req.headers.get('x-cron-secret')
+  if (cronSecret && headerSecret && headerSecret === cronSecret) return true
+
+  const authHeader = req.headers.get('Authorization')
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!authHeader || !anonKey) return false
+
+  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } })
+  const { data, error } = await userClient.rpc('current_is_admin')
+  return !error && data === true
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   const token = Deno.env.get('FOOTBALL_DATA_TOKEN')
@@ -279,40 +310,10 @@ Deno.serve(async (req) => {
   if (!token) return json({ error: 'FOOTBALL_DATA_TOKEN não configurado.' }, 500)
   if (!supabaseUrl || !serviceKey) return json({ error: 'Ambiente Supabase ausente.' }, 500)
 
+  if (!(await isAuthorized(req, supabaseUrl))) return json({ error: 'Não autorizado.' }, 401)
+
   const supabase = createClient(supabaseUrl, serviceKey)
 
-  let api: { matches: ApiMatch[] }
-  try {
-    const res = await fetch(API_URL, { headers: { 'X-Auth-Token': token } })
-    if (!res.ok) return json({ error: `football-data.org respondeu ${res.status}`, detail: await res.text() }, 502)
-    api = await res.json()
-  } catch (e) {
-    return json({ error: 'Falha ao chamar a API.', detail: String(e) }, 502)
-  }
-
-  const { data: dbMatches, error: dbErr } = await supabase
-    .from('matches')
-    .select('id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished')
-  if (dbErr) return json({ error: 'Falha ao ler matches.', detail: dbErr.message }, 500)
-  const db = (dbMatches ?? []) as DbMatch[]
-
-  const byExternal = new Map<number, DbMatch>()
-  for (const d of db) if (d.external_id != null) byExternal.set(d.external_id, d)
-
-  const skeleton = new Map<string, DbMatch[]>()
-  for (const d of db) {
-    if (d.external_id == null && !d.home_team && !d.away_team) {
-      const arr = skeleton.get(d.stage) ?? []
-      arr.push(d)
-      skeleton.set(d.stage, arr)
-    }
-  }
-  for (const arr of skeleton.values()) arr.sort((a, b) => a.ordering - b.ordering)
-
-  const nextOrdering = new Map<string, number>()
-  for (const d of db) nextOrdering.set(d.stage, Math.max(nextOrdering.get(d.stage) ?? 0, d.ordering))
-
-  const claimed = new Set<string>()
   const result = {
     criados: 0,
     vinculados: 0,
@@ -322,130 +323,174 @@ Deno.serve(async (req) => {
     faseDesconhecida: [] as string[],
   }
 
-  const sorted = [...(api.matches ?? [])].sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-
-  for (const m of sorted) {
-    const stage = STAGE_MAP[m.stage]
-    if (!stage) {
-      if (!result.faseDesconhecida.includes(m.stage)) result.faseDesconhecida.push(m.stage)
-      continue
+  try {
+    let api: { matches: ApiMatch[] }
+    try {
+      const res = await fetch(API_URL, { headers: { 'X-Auth-Token': token } })
+      if (!res.ok) throw new SyncError(`football-data.org respondeu ${res.status}`, 502, await res.text())
+      api = await res.json()
+    } catch (e) {
+      throw e instanceof SyncError ? e : new SyncError('Falha ao chamar a API.', 502, String(e))
     }
 
-    const homeC = canonicalTeam(m.homeTeam?.name ?? m.homeTeam?.shortName)
-    const awayC = canonicalTeam(m.awayTeam?.name ?? m.awayTeam?.shortName)
-    const hasTeams = Boolean(homeC && awayC)
+    const { data: dbMatches, error: dbErr } = await supabase
+      .from('matches')
+      .select('id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished')
+    if (dbErr) throw new SyncError('Falha ao ler matches.', 500, dbErr.message)
+    const db = (dbMatches ?? []) as DbMatch[]
 
-    let target = byExternal.get(m.id)
+    const byExternal = new Map<number, DbMatch>()
+    for (const d of db) if (d.external_id != null) byExternal.set(d.external_id, d)
 
-    if (!target && hasTeams) {
-      target = db.find((d) => {
-        if (d.external_id != null || d.stage !== stage) return false
-        const h = canonicalTeam(d.home_team)
-        const a = canonicalTeam(d.away_team)
-        if (!h || !a) return false
-        return (h === homeC && a === awayC) || (h === awayC && a === homeC)
-      })
-    }
-
-    if (!target) {
-      const queue = skeleton.get(stage)
-      if (queue) {
-        const slot = queue.find((d) => !claimed.has(d.id))
-        if (slot) {
-          target = slot
-          claimed.add(slot.id)
-        }
+    const skeleton = new Map<string, DbMatch[]>()
+    for (const d of db) {
+      if (d.external_id == null && !d.home_team && !d.away_team) {
+        const arr = skeleton.get(d.stage) ?? []
+        arr.push(d)
+        skeleton.set(d.stage, arr)
       }
     }
+    for (const arr of skeleton.values()) arr.sort((a, b) => a.ordering - b.ordering)
 
-    const teamsAlreadySet = Boolean(target?.home_team && target?.away_team)
-    const setTeams = hasTeams && !teamsAlreadySet
-    let swapped = false
-    if (target && teamsAlreadySet && hasTeams) {
-      swapped = canonicalTeam(target.home_team) === awayC && homeC !== awayC
-    }
+    const nextOrdering = new Map<string, number>()
+    for (const d of db) nextOrdering.set(d.stage, Math.max(nextOrdering.get(d.stage) ?? 0, d.ordering))
 
-    if (!target) {
-      const naoComecou = m.status === 'SCHEDULED' || m.status === 'TIMED'
-      if (!naoComecou) {
-        result.ignoradosPassados++
+    const claimed = new Set<string>()
+
+    const sorted = [...(api.matches ?? [])].sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+
+    for (const m of sorted) {
+      const stage = STAGE_MAP[m.stage]
+      if (!stage) {
+        if (!result.faseDesconhecida.includes(m.stage)) result.faseDesconhecida.push(m.stage)
         continue
       }
-      const ordering = (nextOrdering.get(stage) ?? 0) + 1
-      nextOrdering.set(stage, ordering)
-      const label = stage === 'group' ? groupLabel(m.group) : null
+
+      const homeC = canonicalTeam(m.homeTeam?.name ?? m.homeTeam?.shortName)
+      const awayC = canonicalTeam(m.awayTeam?.name ?? m.awayTeam?.shortName)
+      const hasTeams = Boolean(homeC && awayC)
+
+      let target = byExternal.get(m.id)
+
+      if (!target && hasTeams) {
+        target = db.find((d) => {
+          if (d.external_id != null || d.stage !== stage) return false
+          const h = canonicalTeam(d.home_team)
+          const a = canonicalTeam(d.away_team)
+          if (!h || !a) return false
+          return (h === homeC && a === awayC) || (h === awayC && a === homeC)
+        })
+      }
+
+      if (!target) {
+        const queue = skeleton.get(stage)
+        if (queue) {
+          const slot = queue.find((d) => !claimed.has(d.id))
+          if (slot) {
+            target = slot
+            claimed.add(slot.id)
+          }
+        }
+      }
+
+      const teamsAlreadySet = Boolean(target?.home_team && target?.away_team)
+      const setTeams = hasTeams && !teamsAlreadySet
+      let swapped = false
+      if (target && teamsAlreadySet && hasTeams) {
+        swapped = canonicalTeam(target.home_team) === awayC && homeC !== awayC
+      }
+
+      if (!target) {
+        const naoComecou = m.status === 'SCHEDULED' || m.status === 'TIMED'
+        if (!naoComecou) {
+          result.ignoradosPassados++
+          continue
+        }
+        const ordering = (nextOrdering.get(stage) ?? 0) + 1
+        nextOrdering.set(stage, ordering)
+        const label = stage === 'group' ? groupLabel(m.group) : null
+        const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
+        const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
+        const { error: insErr } = await supabase.from('matches').insert({
+          stage,
+          ordering,
+          label,
+          home_team: displayTeam(homeRaw),
+          away_team: displayTeam(awayRaw),
+          home_team_code: isoCode(homeRaw),
+          away_team_code: isoCode(awayRaw),
+          kickoff: m.utcDate,
+          external_id: m.id,
+          result_source: 'api',
+        })
+        if (insErr) throw new SyncError('Falha ao criar jogo.', 500, { detail: insErr.message, apiId: m.id })
+        result.criados++
+        continue
+      }
+
+      const patch: Record<string, unknown> = {
+        external_id: m.id,
+        kickoff: m.utcDate,
+        last_synced_at: new Date().toISOString(),
+      }
       const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
       const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
-      const { error: insErr } = await supabase.from('matches').insert({
-        stage,
-        ordering,
-        label,
-        home_team: displayTeam(homeRaw),
-        away_team: displayTeam(awayRaw),
-        home_team_code: isoCode(homeRaw),
-        away_team_code: isoCode(awayRaw),
-        kickoff: m.utcDate,
-        external_id: m.id,
-        result_source: 'api',
-      })
-      if (insErr) return json({ error: 'Falha ao criar jogo.', detail: insErr.message, apiId: m.id }, 500)
-      result.criados++
-      continue
-    }
-
-    const patch: Record<string, unknown> = {
-      external_id: m.id,
-      kickoff: m.utcDate,
-      last_synced_at: new Date().toISOString(),
-    }
-    const homeRaw = m.homeTeam?.name ?? m.homeTeam?.shortName
-    const awayRaw = m.awayTeam?.name ?? m.awayTeam?.shortName
-    if (setTeams) {
-      patch.home_team = displayTeam(homeRaw)
-      patch.away_team = displayTeam(awayRaw)
-    }
-    if (hasTeams) {
-      patch.home_team_code = isoCode(homeRaw)
-      patch.away_team_code = isoCode(awayRaw)
-    }
-    if (target.external_id == null) result.vinculados++
-
-    const finishedApi = m.status === 'FINISHED' && m.score.fullTime.home != null && m.score.fullTime.away != null
-    if (finishedApi) {
-      if (target.finished && target.result_source === 'manual') {
-        result.preservadosManuais++
-      } else {
-        let advancer: 'home' | 'away' | null =
-          m.score.winner === 'HOME_TEAM' ? 'home' : m.score.winner === 'AWAY_TEAM' ? 'away' : null
-        if (swapped) {
-          if (advancer === 'home') advancer = 'away'
-          else if (advancer === 'away') advancer = 'home'
-        }
-        if (stage === 'group') advancer = null
-
-        // Quando a partida foi decidida nos pênaltis, score.fullTime pode refletir
-        // o placar acumulado do shootout em vez do placar do tempo normal/prorrogação.
-        // Preservamos o placar já salvo (set durante o jogo) e apenas finalizamos
-        // o registro com advancer correto. Se home_score ainda for null (nunca
-        // atualizado ao vivo), o admin deverá lançar o placar manualmente.
-        if (m.score.duration !== 'PENALTY_SHOOTOUT') {
-          let home = m.score.fullTime.home as number
-          let away = m.score.fullTime.away as number
-          if (swapped) { [home, away] = [away, home] }
-          patch.home_score = home
-          patch.away_score = away
-        }
-
-        patch.advancer = advancer
-        patch.finished = true
-        patch.result_source = 'api'
-        result.placaresAtualizados++
+      if (setTeams) {
+        patch.home_team = displayTeam(homeRaw)
+        patch.away_team = displayTeam(awayRaw)
       }
+      if (hasTeams) {
+        patch.home_team_code = isoCode(homeRaw)
+        patch.away_team_code = isoCode(awayRaw)
+      }
+      if (target.external_id == null) result.vinculados++
+
+      const finishedApi = m.status === 'FINISHED' && m.score.fullTime.home != null && m.score.fullTime.away != null
+      if (finishedApi) {
+        if (target.finished && target.result_source === 'manual') {
+          result.preservadosManuais++
+        } else {
+          let advancer: 'home' | 'away' | null =
+            m.score.winner === 'HOME_TEAM' ? 'home' : m.score.winner === 'AWAY_TEAM' ? 'away' : null
+          if (swapped) {
+            if (advancer === 'home') advancer = 'away'
+            else if (advancer === 'away') advancer = 'home'
+          }
+          if (stage === 'group') advancer = null
+
+          // Quando a partida foi decidida nos pênaltis, score.fullTime pode refletir
+          // o placar acumulado do shootout em vez do placar do tempo normal/prorrogação.
+          // Preservamos o placar já salvo (set durante o jogo) e apenas finalizamos
+          // o registro com advancer correto. Se home_score ainda for null (nunca
+          // atualizado ao vivo), o admin deverá lançar o placar manualmente.
+          if (m.score.duration !== 'PENALTY_SHOOTOUT') {
+            let home = m.score.fullTime.home as number
+            let away = m.score.fullTime.away as number
+            if (swapped) { [home, away] = [away, home] }
+            patch.home_score = home
+            patch.away_score = away
+          }
+
+          patch.advancer = advancer
+          patch.finished = true
+          patch.result_source = 'api'
+          result.placaresAtualizados++
+        }
+      }
+
+      const { error: upErr } = await supabase.from('matches').update(patch).eq('id', target.id)
+      if (upErr) throw new SyncError('Falha ao atualizar jogo.', 500, { detail: upErr.message, matchId: target.id })
     }
 
-    const { error: upErr } = await supabase.from('matches').update(patch).eq('id', target.id)
-    if (upErr) return json({ error: 'Falha ao atualizar jogo.', detail: upErr.message, matchId: target.id }, 500)
+    await supabase.from('sync_logs').insert({ function_name: 'sync-resultados', status: 'ok', summary: result })
+    return json({ ok: true, ...result })
+  } catch (e) {
+    const status = e instanceof SyncError ? e.status : 500
+    const detail = e instanceof SyncError ? e.detail : String(e)
+    const message = e instanceof Error ? e.message : 'Erro inesperado.'
+    await supabase
+      .from('sync_logs')
+      .insert({ function_name: 'sync-resultados', status: 'error', summary: { ...result, error: message, detail } })
+    return json({ error: message, detail }, status)
   }
-
-  return json({ ok: true, ...result })
 })
