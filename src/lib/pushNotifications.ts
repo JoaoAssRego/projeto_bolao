@@ -90,7 +90,17 @@ export function usePushNotifications(participantId: string | null) {
         },
         { onConflict: 'endpoint' },
       )
-      if (upsertError) throw new Error(upsertError.message)
+      if (upsertError) {
+        // Diagnóstico temporário: RLS exige participant_id = current_participant_id()
+        // (derivado de auth.uid()) — se bater erro de RLS, comparamos os dois lados.
+        if (/row-level security/i.test(upsertError.message)) {
+          const { data: authData } = await supabase.auth.getUser()
+          throw new Error(
+            `${upsertError.message} [participant_id enviado: ${participantId}, auth.uid(): ${authData.user?.id ?? 'null'}]`,
+          )
+        }
+        throw new Error(upsertError.message)
+      }
 
       localStorage.setItem(SUBSCRIBED_KEY, '1')
       dismiss()
@@ -98,7 +108,18 @@ export function usePushNotifications(participantId: string | null) {
       // Não descarta (sem localStorage) para permitir tentar de novo — o problema
       // costuma ser transitório (rede, service worker ainda atualizando).
       console.error('Falha ao ativar notificações push:', e)
-      setError(e instanceof Error ? e.message : 'Não foi possível ativar. Tente de novo.')
+      // No Chrome/Android, a inscrição depende do Google Play Services (é
+      // quem registra o navegador no FCM); aparelhos sem ele (ROMs
+      // "degoogled", alguns Huawei) rejeitam com esse erro específico.
+      const isPushServiceError =
+        e instanceof Error && e.name === 'AbortError' && /push service/i.test(e.message)
+      setError(
+        isPushServiceError
+          ? 'Este aparelho não tem o Google Play Services disponível — notificações push não funcionam sem ele neste navegador.'
+          : e instanceof Error
+            ? e.message
+            : 'Não foi possível ativar. Tente de novo.',
+      )
     } finally {
       setBusy(false)
     }
