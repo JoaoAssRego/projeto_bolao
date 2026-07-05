@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const DISMISSED_KEY = 'push-notif-dismissed'
+const SUBSCRIBED_KEY = 'push-notif-subscribed'
 
 function isStandalone(): boolean {
   return (
@@ -43,8 +44,12 @@ export function usePushNotifications(participantId: string | null) {
   useEffect(() => {
     if (!participantId) return
     if (localStorage.getItem(DISMISSED_KEY)) return
+    if (localStorage.getItem(SUBSCRIBED_KEY)) return
     if (!isStandalone() || !isSupported()) return
-    if (Notification.permission !== 'default') return
+    // Permissão "granted" não significa que a inscrição foi salva com sucesso
+    // (pode ter falhado depois, ex.: erro do serviço de push) — só "denied"
+    // bloqueia de verdade tentar de novo.
+    if (Notification.permission === 'denied') return
     setShowCard(true)
   }, [participantId])
 
@@ -87,6 +92,7 @@ export function usePushNotifications(participantId: string | null) {
       )
       if (upsertError) throw new Error(upsertError.message)
 
+      localStorage.setItem(SUBSCRIBED_KEY, '1')
       dismiss()
     } catch (e) {
       // Não descarta (sem localStorage) para permitir tentar de novo — o problema
