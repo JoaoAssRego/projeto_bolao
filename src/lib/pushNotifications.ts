@@ -27,6 +27,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 export function usePushNotifications(participantId: string | null) {
   const [showCard, setShowCard] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!participantId) return
@@ -43,35 +45,43 @@ export function usePushNotifications(participantId: string | null) {
       return
     }
 
-    const permission = await Notification.requestPermission()
-    if (permission !== 'granted') {
+    setBusy(true)
+    setError(null)
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        dismiss()
+        return
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+      const json = subscription.toJSON()
+
+      const { error: upsertError } = await supabase.from('push_subscriptions').upsert(
+        {
+          participant_id: participantId,
+          endpoint: json.endpoint,
+          p256dh: json.keys?.p256dh,
+          auth_key: json.keys?.auth,
+          user_agent: navigator.userAgent,
+        },
+        { onConflict: 'endpoint' },
+      )
+      if (upsertError) throw new Error(upsertError.message)
+
       dismiss()
-      return
+    } catch (e) {
+      // Não descarta (sem localStorage) para permitir tentar de novo — o problema
+      // costuma ser transitório (rede, service worker ainda atualizando).
+      console.error('Falha ao ativar notificações push:', e)
+      setError(e instanceof Error ? e.message : 'Não foi possível ativar. Tente de novo.')
+    } finally {
+      setBusy(false)
     }
-
-    const registration = await navigator.serviceWorker.ready
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    })
-    const json = subscription.toJSON()
-
-    const { error } = await supabase.from('push_subscriptions').upsert(
-      {
-        participant_id: participantId,
-        endpoint: json.endpoint,
-        p256dh: json.keys?.p256dh,
-        auth_key: json.keys?.auth,
-        user_agent: navigator.userAgent,
-      },
-      { onConflict: 'endpoint' },
-    )
-    if (error) {
-      console.error('Falha ao salvar inscrição push:', error.message)
-      return
-    }
-
-    dismiss()
   }
 
   function dismiss() {
@@ -79,5 +89,5 @@ export function usePushNotifications(participantId: string | null) {
     setShowCard(false)
   }
 
-  return { showCard, subscribe, dismiss }
+  return { showCard, busy, error, subscribe, dismiss }
 }

@@ -3,7 +3,7 @@ import { useAuth } from "../data/auth";
 
 export default function NotificationOptInCard() {
   const { me } = useAuth();
-  const { showCard, subscribe, dismiss } = usePushNotifications(me?.id ?? null);
+  const { showCard, busy, error, subscribe, dismiss } = usePushNotifications(me?.id ?? null);
 
   if (!showCard) return null;
 
@@ -28,16 +28,23 @@ export default function NotificationOptInCard() {
         <p className="text-sm mt-0.5" style={{ color: "var(--t2)" }}>
           Avisamos quando um jogo está prestes a fechar e você ainda não palpitou.
         </p>
+        {error && (
+          <p className="text-sm mt-2" style={{ color: "var(--danger, #ef4444)" }}>
+            {error}
+          </p>
+        )}
         <div className="flex gap-2 mt-3">
           <button
             onClick={subscribe}
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
+            disabled={busy}
+            className="px-4 py-2 rounded-xl font-semibold text-sm disabled:opacity-60"
             style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
           >
-            Ativar
+            {busy ? "Ativando..." : error ? "Tentar de novo" : "Ativar"}
           </button>
           <button
             onClick={dismiss}
+            disabled={busy}
             className="px-4 py-2 rounded-xl font-semibold text-sm"
             style={{ color: "var(--t3)" }}
           >
