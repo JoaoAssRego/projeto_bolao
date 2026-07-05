@@ -65,7 +65,13 @@ export function usePushNotifications(participantId: string | null) {
     try {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
-        dismiss()
+        // Se o navegador nem chegou a mostrar o popup de permissão, é porque
+        // já foi negada antes (ou as notificações do próprio navegador estão
+        // desativadas no Android) — sem dismiss(), pra explicar o que fazer
+        // em vez de o card só sumir sem avisar nada.
+        setError(
+          'Notificações bloqueadas. Verifique: 1) Configurações do Android → Apps → Chrome (ou seu navegador) → Notificações → ativado; 2) toque no cadeado ao lado do endereço do site → Permissões → Notificações → Permitir.',
+        )
         return
       }
 
@@ -90,17 +96,7 @@ export function usePushNotifications(participantId: string | null) {
         },
         { onConflict: 'endpoint' },
       )
-      if (upsertError) {
-        // Diagnóstico temporário: RLS exige participant_id = current_participant_id()
-        // (derivado de auth.uid()) — se bater erro de RLS, comparamos os dois lados.
-        if (/row-level security/i.test(upsertError.message)) {
-          const { data: authData } = await supabase.auth.getUser()
-          throw new Error(
-            `${upsertError.message} [participant_id enviado: ${participantId}, auth.uid(): ${authData.user?.id ?? 'null'}]`,
-          )
-        }
-        throw new Error(upsertError.message)
-      }
+      if (upsertError) throw new Error(upsertError.message)
 
       localStorage.setItem(SUBSCRIBED_KEY, '1')
       dismiss()
