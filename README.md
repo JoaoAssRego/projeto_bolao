@@ -58,31 +58,30 @@ Abra o endereço que aparecer (ex: <http://localhost:5173>) no celular ou no nav
 
 ## Sincronismo automático de resultados (opcional)
 
-Puxa os jogos da Copa **sozinho** da API gratuita [football-data.org](https://www.football-data.org): **cria os jogos que ainda faltam** (grupos + mata-mata) com times e horário, e preenche o **placar depois que cada jogo termina** (não é ao vivo). O lançamento manual continua valendo e **tem prioridade**: a API nunca sobrescreve um placar que o admin corrigiu à mão.
+Puxa os jogos da Copa **sozinho** da API gratuita [football-data.org](https://www.football-data.org): **cria os jogos que ainda faltam** (grupos + mata-mata) com times e horário, e preenche o **placar quando cada jogo termina** (não mostra placar parcial ao vivo — a tela só troca de "aguardando placar" para o resultado quando a API confirma `FINISHED`). O lançamento manual continua valendo e **tem prioridade**: a API nunca sobrescreve um placar que o admin corrigiu à mão.
 
-Como funciona: uma **Edge Function** no Supabase chama a API e mantém a tabela `matches` em dia (cria/atualiza jogos e grava placares); o **pg_cron** dispara a função a cada 30 min. O app continua só lendo do banco.
+Como funciona: uma única **Edge Function** (`sync-resultados`) chama a API e mantém a tabela `matches` em dia (cria/vincula jogos e grava placar final, incluindo prorrogação/pênaltis — ela reconsulta o jogo a cada execução sem prazo máximo até a API devolver `FINISHED`); o **pg_cron** dispara a função a cada 2 min. O app continua só lendo do banco.
 
 Só são criados jogos que **ainda não começaram** — jogos já ocorridos antes do bolão entrar no ar ficam de fora (não dá pra apostar no passado).
 
-Duas Edge Functions trabalham juntas: `sync-resultados` (a cada 30 min) cria/vincula os jogos e grava o placar final; `sync-ao-vivo` (a cada minuto) atualiza o placar parcial dos jogos já em andamento — incluindo prorrogação e pênaltis, já que ela reconsulta o jogo a cada minuto sem prazo máximo, até a API devolver `FINISHED`.
+> Existiu uma segunda function (`sync-ao-vivo`) que atualizava o placar parcial durante o jogo, mas ela foi aposentada: o app nunca exibia esse placar parcial na tela, e ela dependia de `sync-resultados` já ter rodado com sucesso antes (criando uma fragilidade sem benefício real). Rodar só `sync-resultados`, com mais frequência, resolve sem perda de funcionalidade.
 
 ### Passos
 
 1. **Token grátis:** crie conta em <https://www.football-data.org/client/register> e copie seu token.
-2. **Migrações:** no **SQL Editor**, rode [`supabase/migrations/0002_sync_api.sql`](supabase/migrations/0002_sync_api.sql) e depois [`supabase/migrations/0009_sync_observability_cron.sql`](supabase/migrations/0009_sync_observability_cron.sql) (colunas de apoio, tabela `sync_logs`, segredo `cron_secret` no Vault e o agendamento via `pg_cron` já embutido — não precisa mais editar/colar SQL de cron à mão).
-3. **Pegue o segredo gerado** (a migration cria um valor aleatório no Vault):
+2. **Migrações:** no **SQL Editor**, rode em ordem [`supabase/migrations/0002_sync_api.sql`](supabase/migrations/0002_sync_api.sql), [`supabase/migrations/0009_sync_observability_cron.sql`](supabase/migrations/0009_sync_observability_cron.sql) (colunas de apoio, tabela `sync_logs`, segredo `cron_secret` no Vault e o agendamento via `pg_cron` já embutido) e [`supabase/migrations/0013_retire_sync_ao_vivo.sql`](supabase/migrations/0013_retire_sync_ao_vivo.sql) (remove o cron do sync-ao-vivo e deixa o sync-resultados rodando a cada 2 min).
+3. **Pegue o segredo gerado** (a migration `0009` cria um valor aleatório no Vault):
    ```sql
    select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret';
    ```
-4. **Deploy das funções** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
+4. **Deploy da função** (precisa da [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```bash
    supabase link --project-ref SEU-REF
    supabase secrets set FOOTBALL_DATA_TOKEN=seu_token
    supabase secrets set CRON_SECRET=<valor copiado do passo 3>
    supabase functions deploy sync-resultados --no-verify-jwt
-   supabase functions deploy sync-ao-vivo --no-verify-jwt
    ```
-   O `--no-verify-jwt` é necessário porque as funções passam a fazer sua própria checagem de autorização (header `x-cron-secret` para o pg_cron, ou sessão de admin logado para o botão manual no Admin) em vez de depender só de uma anon key válida.
+   O `--no-verify-jwt` é necessário porque a função passa a fazer sua própria checagem de autorização (header `x-cron-secret` para o pg_cron, ou sessão de admin logado para o botão manual no Admin) em vez de depender só de uma anon key válida.
 5. **Teste manual** (opcional): `supabase functions invoke sync-resultados` — deve responder um JSON com `criados`, `vinculados` e `placaresAtualizados`.
 
 ### Bom saber

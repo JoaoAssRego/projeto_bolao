@@ -288,6 +288,25 @@ class SyncError extends Error {
   }
 }
 
+// football-data.org de vez em quando falha a conexão no meio do handshake TLS
+// (erro de rede transitório, não um erro da API em si) — tenta mais duas vezes
+// antes de desistir, para não perder um ciclo inteiro de 30 min por causa disso.
+async function fetchApiMatches(token: string): Promise<{ matches: ApiMatch[] }> {
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(API_URL, { headers: { 'X-Auth-Token': token } })
+      if (!res.ok) throw new SyncError(`football-data.org respondeu ${res.status}`, 502, await res.text())
+      return await res.json()
+    } catch (e) {
+      if (e instanceof SyncError) throw e
+      lastErr = e
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt))
+    }
+  }
+  throw new SyncError('Falha ao chamar a API.', 502, String(lastErr))
+}
+
 async function isAuthorized(req: Request, supabaseUrl: string): Promise<boolean> {
   const cronSecret = Deno.env.get('CRON_SECRET')
   const headerSecret = req.headers.get('x-cron-secret')
@@ -324,14 +343,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    let api: { matches: ApiMatch[] }
-    try {
-      const res = await fetch(API_URL, { headers: { 'X-Auth-Token': token } })
-      if (!res.ok) throw new SyncError(`football-data.org respondeu ${res.status}`, 502, await res.text())
-      api = await res.json()
-    } catch (e) {
-      throw e instanceof SyncError ? e : new SyncError('Falha ao chamar a API.', 502, String(e))
-    }
+    const api = await fetchApiMatches(token)
 
     const { data: dbMatches, error: dbErr } = await supabase
       .from('matches')
