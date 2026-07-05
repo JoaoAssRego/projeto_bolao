@@ -14,9 +14,6 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      injectManifest: {
-        injectionPoint: undefined,
-      },
       includeAssets: ["favicon.svg", "icon.svg"],
       manifest: {
         name: "Bolão",
