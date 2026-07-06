@@ -9,6 +9,20 @@ function isSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
+// Card e menu de perfil montam instâncias separadas deste hook — sem esse
+// pub/sub, ativar pelo menu não atualizaria o estado "inscrito" já lido pelo
+// card (cada `useState` é local à sua instância, só o localStorage é comum).
+const subscribedListeners = new Set<() => void>()
+
+function readSubscribedFlag(): boolean {
+  return localStorage.getItem(SUBSCRIBED_KEY) === '1'
+}
+
+function writeSubscribedFlag() {
+  localStorage.setItem(SUBSCRIBED_KEY, '1')
+  subscribedListeners.forEach((notify) => notify())
+}
+
 function platformLabel(): string {
   if (isIOS()) return 'ios'
   if (/android/i.test(navigator.userAgent)) return 'android'
@@ -73,6 +87,19 @@ export function usePushNotifications(participantId: string | null) {
   const [showCard, setShowCard] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [subscribed, setSubscribed] = useState(readSubscribedFlag)
+
+  // No iOS fora do modo standalone a Push API nem existe; nesses casos não
+  // faz sentido oferecer o item "Ativar notificações" em nenhum lugar fixo.
+  const supported = isSupported() && !(isIOS() && !isStandalone())
+
+  useEffect(() => {
+    const notify = () => setSubscribed(readSubscribedFlag())
+    subscribedListeners.add(notify)
+    return () => {
+      subscribedListeners.delete(notify)
+    }
+  }, [])
 
   useEffect(() => {
     if (!participantId) return
@@ -139,7 +166,7 @@ export function usePushNotifications(participantId: string | null) {
       if (upsertError) throw new Error(upsertError.message)
 
       logAttempt(participantId, { permissionBefore, permissionAfter: permission })
-      localStorage.setItem(SUBSCRIBED_KEY, '1')
+      writeSubscribedFlag()
       dismiss()
     } catch (e) {
       // Não descarta (sem localStorage) para permitir tentar de novo — o problema
@@ -168,5 +195,5 @@ export function usePushNotifications(participantId: string | null) {
     setShowCard(false)
   }
 
-  return { showCard, busy, error, subscribe, dismiss }
+  return { showCard, busy, error, subscribed, supported, subscribe, dismiss }
 }
