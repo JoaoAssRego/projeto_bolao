@@ -1,10 +1,10 @@
 # Bolão — Especificação (entendimento compartilhado)
 
-> Documento atualizado em 2026-06-28. Reflete o estado atual do produto após a fase de grupos da Copa 2026.
+> Documento atualizado em 2026-07-05. O produto está em transição de "um bolão, um torneio" para "um bolão, múltiplos torneios". Copa do Mundo 2026 é o torneio em produção; Champions League é a Fase 1 da expansão multi-torneio (ver [prd-multi-torneio-champions-league.md](docs/prd/prd-multi-torneio-champions-league.md)), ainda em desenvolvimento; Libertadores e Copa do Brasil ficam para a Fase 2. As seções abaixo já descrevem o modelo-alvo (multi-torneio); o que ainda não foi implementado está marcado como tal.
 
 ## Visão geral
 
-PWA focada em celular para um Bolão do Mundo de 2026, com ~30 participantes ativos, todos brasileiros. Acesso por nome + senha. Resultados chegam automaticamente via API, com o admin como fallback. Sistema de ligas permite subgrupos competirem entre si dentro do bolão global.
+PWA focada em celular para bolões de futebol, com ~30 participantes ativos, todos brasileiros. Nasceu como bolão exclusivo da Copa do Mundo 2026 e está evoluindo para suportar **múltiplos torneios simultâneos** — cada torneio (Copa do Mundo, Champions League, e futuramente Libertadores/Copa do Brasil) tem seu próprio conjunto de jogos, ranking e ligas, sem placar agregado entre eles. Acesso por nome + senha. Resultados chegam automaticamente via API, com o admin como fallback. Sistema de ligas permite subgrupos competirem entre si dentro de um torneio específico.
 
 ## Mecânica de aposta e pontuação
 
@@ -22,6 +22,14 @@ A pontuação é sempre calculada sobre o **placar do tempo normal**. Prorrogaç
 - Se o jogo foi para pênaltis após empate no tempo normal: quem palpitou empate ganha 7 pts (pela regra de empate não-cravado). Quem palpitou vitória de qualquer time ganha 0 pts.
 - Não existe bônus por acertar o time que avança via pênaltis.
 
+### Fase liga (Champions League) — *em desenvolvimento*
+
+A Champions League não tem mais fase de grupos desde 2024/25: é uma fase liga (36 times, tabela única, 8 jogos cada, sem divisão em grupos). Para efeito de pontuação, esses jogos seguem a **mesma regra da fase de grupos**: 5 pts por acertar o resultado (vitória/derrota/empate), sem bônus de avanço — porque, como na fase de grupos, não existe "quem avança" num jogo individual dessa fase.
+
+### Confrontos de ida e volta (Champions League e, na Fase 2, Copa do Brasil) — *em desenvolvimento*
+
+Mata-matas de ida e volta entram como **dois jogos independentes** (ida e volta), cada um com seu próprio palpite. Cada perna pontua pela regra de mata-mata de sempre (10/7/5/0 acima), e o bônus de 5 pts por "quem avança" é avaliado sobre **o vencedor daquela partida específica** — não sobre o placar agregado do confronto. Depois que as duas pernas terminam, o app mostra o placar agregado e quem realmente avançou de fase como informação — isso não altera a pontuação de ninguém.
+
 ### Desempate no ranking
 
 1. Mais placares exatos (cravadas de 10 pts).
@@ -31,14 +39,17 @@ A pontuação é sempre calculada sobre o **placar do tempo normal**. Prorrogaç
 
 ## Recorte de jogos
 
-- Valem todos os jogos da Copa 2026.
+- Cada torneio (Copa do Mundo, Champions League e, na Fase 2, Libertadores/Copa do Brasil) tem seu próprio conjunto de jogos, ranking e ligas — são universos independentes, sem placar agregado entre torneios.
+- Dentro de um torneio, valem todos os jogos daquele torneio.
 - Não é possível palpitar em jogos já encerrados.
+- *Em desenvolvimento:* um seletor de torneio, fixo no topo do app, define qual torneio está sendo visualizado em Home, Jogos, Ranking (Classificação) e Meus Palpites. Abre no último torneio visualizado pelo participante ou, na primeira visita, no torneio marcado como "destaque" pelo admin.
 
 ## Dados (jogos e resultados)
 
-- A tabela de jogos é sincronizada automaticamente com a API da **football-data.org** a cada 30 minutos — times, horários e placares chegam sem intervenção do admin.
+- A tabela de jogos é sincronizada automaticamente com a API da **football-data.org** a cada 30 minutos — times, horários e placares chegam sem intervenção do admin. Cada torneio ativo é sincronizado pelo seu próprio código de competição na API (`WC` para Copa do Mundo, `CL` para Champions League); Libertadores e Copa do Brasil (Fase 2) exigem uma segunda fonte de dados, pois não estão no plano gratuito da football-data.org.
 - O admin pode lançar ou corrigir resultados manualmente. Entradas manuais nunca são sobrescritas pela API.
 - Jogos de mata-mata entram com times "a definir"; o admin preenche os confrontos conforme o chaveamento é publicado.
+- *Em desenvolvimento:* confrontos de ida e volta (Champions League) entram como dois jogos ligados por um identificador de confronto comum, cada um rotulado "Ida" ou "Volta".
 - Todos os horários em **horário de Brasília (UTC-3)**.
 
 ## Travamento e palpites
@@ -62,11 +73,12 @@ A pontuação é sempre calculada sobre o **placar do tempo normal**. Prorrogaç
 
 ## Sistema de ligas
 
-Ligas são subgrupos de competição dentro do bolão global. Qualquer participante pode criar uma liga e convidar outros.
+Ligas são subgrupos de competição entre amigos. Qualquer participante pode criar uma liga e convidar outros. **Não confundir** com "torneio" (Copa do Mundo, Champions League etc.) — liga é sempre o subgrupo de pessoas, torneio é sempre o campeonato de futebol.
 
-- **Ranking por liga:** filtrado pelos pontos acumulados a partir da data `starts_at` da liga. Todos os membros partem do zero nessa data, independentemente de quantos pontos já tinham no ranking global.
+- *Em desenvolvimento:* **cada liga pertence a um torneio específico**, escolhido pelo criador no momento da criação. Os mesmos amigos que querem competir em mais de um torneio precisam de uma liga por torneio (ex: "Liga da Galera" na Copa do Mundo e outra "Liga da Galera" na Champions League são registros diferentes).
+- **Ranking por liga:** filtrado pelos pontos acumulados a partir da data `starts_at` da liga, dentro do torneio ao qual a liga pertence. Todos os membros partem do zero nessa data, independentemente de quantos pontos já tinham no ranking global daquele torneio.
 - **`starts_at`** é configurado pelo criador no momento da criação da liga.
-- O ranking global (todos os participantes, desde o início da Copa) continua sempre disponível.
+- O ranking global (todos os participantes, desde o início do torneio) continua sempre disponível, filtrado pelo torneio selecionado.
 
 ### Fluxo de convite — por nome
 
@@ -105,11 +117,13 @@ A estrutura completa das tabelas, colunas e constraints está documentada em [`d
 
 Tabelas principais: `participants`, `matches`, `predictions`, `leagues`, `league_members`, `league_invite_links`.
 
+*Em desenvolvimento (Fase 1 multi-torneio):* nova tabela `torneios` (um registro por campeonato de futebol); `matches` ganha `torneio_id` (obrigatório) e `tie_id`/`leg` (para confrontos de ida e volta); `leagues` ganha `torneio_id` (obrigatório). Detalhes em [`prd-multi-torneio-champions-league.md`](docs/prd/prd-multi-torneio-champions-league.md).
+
 ## Stack e infraestrutura
 
 - Frontend: **React + Vite + TypeScript + Tailwind**, instalável via `vite-plugin-pwa`.
 - Backend/dados: **Supabase** — Postgres + Supabase Auth + Realtime.
-- Sync automático: **Edge Function** + pg_cron consumindo football-data.org.
+- Sync automático: **Edge Function** + pg_cron consumindo football-data.org (uma segunda fonte de dados entra na Fase 2, para Libertadores/Copa do Brasil).
 - Deploy: estático na **Vercel**.
 
 ## Identidade visual

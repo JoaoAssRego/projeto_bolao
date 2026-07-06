@@ -21,7 +21,8 @@ export default function MatchCard({ match, me, predictions, onSave, hasPredictio
   const finished = hasResult(match)
   const teamsDefined = Boolean(match.home_team && match.away_team)
   const myPred = predictions.find((p) => p.participant_id === me.id)
-  const groupLabel = match.label ?? STAGE_LABEL[match.stage]
+  const stageLabel = match.label ?? STAGE_LABEL[match.stage]
+  const groupLabel = match.leg ? `${stageLabel} · ${match.leg === 'ida' ? 'Ida' : 'Volta'}` : stageLabel
   const warnBorder = !locked && !finished && teamsDefined && !hasPrediction
 
   const [showShare, setShowShare] = useState(false)

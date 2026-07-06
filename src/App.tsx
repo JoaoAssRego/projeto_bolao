@@ -13,6 +13,7 @@ import Ligas from "./screens/Ligas";
 import MeusPalpites from "./screens/MeusPalpites";
 import Admin from "./screens/Admin";
 import JogoDetalhes from "./screens/JogoDetalhes";
+import TorneioSelector from "./components/TorneioSelector";
 
 export default function App() {
   const { loading, configured } = useStore();
@@ -283,9 +284,10 @@ function Header() {
         scrolled ? "border-b border-[var(--border)]" : "border-b border-transparent"
       }`}
     >
-      <div className="flex items-center gap-2">
-        <img src="/favicon.svg" alt="" className="h-6 w-6" />
-        <span className="font-bold tracking-tight text-[var(--t1)]">Bolão</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <img src="/favicon.svg" alt="" className="h-6 w-6 shrink-0" />
+        <span className="shrink-0 font-bold tracking-tight text-[var(--t1)]">Bolão</span>
+        <TorneioSelector />
       </div>
 
       <div className="flex items-center gap-1.5">
