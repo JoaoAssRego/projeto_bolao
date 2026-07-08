@@ -32,7 +32,7 @@ export function scoreFor(pred: Prediction | undefined, match: Match): number | n
   // Saldo exato: mesma margem de vitória ou empate não-cravado (saldo 0)
   if (predDiff === realDiff) return 7
 
-  if (match.stage === 'group') {
+  if (match.stage === 'group' || match.stage === 'league_phase') {
     const predSign = Math.sign(predDiff)
     const realSign = Math.sign(realDiff)
     return predSign === realSign ? 5 : 0

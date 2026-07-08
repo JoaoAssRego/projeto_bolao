@@ -45,7 +45,7 @@ function chipLabel(key: string, today: string, tomorrow: string): string {
 }
 
 export default function Jogos() {
-  const { matches, predictions, savePrediction } = useStore()
+  const { matches, predictions, savePrediction, torneios, activeTorneioId } = useStore()
   const { me } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
@@ -95,6 +95,20 @@ export default function Jogos() {
   }, [byDay, selectedDay])
 
   if (!me) return null
+
+  // Torneio sem nenhum jogo cadastrado ainda (ex: temporada não começou) —
+  // mensagem própria em vez da barra de datas vazia + "nenhum jogo neste dia".
+  if (matches.length === 0) {
+    const nomeTorneio = torneios.find((t) => t.id === activeTorneioId)?.nome ?? 'Este torneio'
+    return (
+      <div className="flex flex-col items-center gap-2 py-16 text-center">
+        <p className="text-sm font-semibold text-[var(--t1)]">{nomeTorneio} ainda não começou.</p>
+        <p className="max-w-[280px] text-sm text-[var(--t3)]">
+          Os jogos aparecem aqui assim que o calendário for publicado.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3">

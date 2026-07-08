@@ -1,7 +1,8 @@
-export type Stage = 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
+export type Stage = 'group' | 'league_phase' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
 
 export const STAGE_LABEL: Record<Stage, string> = {
   group: 'Fase de grupos',
+  league_phase: 'Fase liga',
   r32: '16-avos de final',
   r16: 'Oitavas de final',
   qf: 'Quartas de final',
@@ -11,7 +12,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 }
 
 // Ordem cronológica das fases (para ordenar a lista de jogos)
-export const STAGE_ORDER: Stage[] = ['group', 'r32', 'r16', 'qf', 'sf', 'third', 'final']
+export const STAGE_ORDER: Stage[] = ['group', 'league_phase', 'r32', 'r16', 'qf', 'sf', 'third', 'final']
 
 export interface Participant {
   id: string
@@ -25,6 +26,7 @@ export interface Participant {
 
 export interface Match {
   id: string
+  torneio_id: string
   stage: Stage
   ordering: number
   label: string | null
@@ -41,6 +43,21 @@ export interface Match {
   external_id: number | null // id do jogo no football-data.org (sync automático)
   result_source: 'manual' | 'api' // origem do resultado: lançado à mão ou pela API
   last_synced_at: string | null
+  tie_id: string | null // agrupa ida/volta do mesmo confronto de mata-mata
+  leg: 'ida' | 'volta' | null
+}
+
+export interface Torneio {
+  id: string
+  nome: string
+  slug: string
+  competition_code: string
+  data_source: string
+  starts_at: string | null
+  ends_at: string | null
+  is_active: boolean
+  is_featured: boolean
+  created_at: string
 }
 
 export interface Prediction {
@@ -53,11 +70,12 @@ export interface Prediction {
 }
 
 export function isKnockout(stage: Stage): boolean {
-  return stage !== 'group'
+  return stage !== 'group' && stage !== 'league_phase'
 }
 
 export interface League {
   id: string
+  torneio_id: string
   name: string
   creator_id: string
   created_at: string

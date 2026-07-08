@@ -2,7 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { hashPassword } from '../lib/password'
-import type { League, LeagueInviteLink, LeagueMember, Match, Participant, Prediction } from '../lib/types'
+import type { League, LeagueInviteLink, LeagueMember, Match, Participant, Prediction, Torneio } from '../lib/types'
+
+const ACTIVE_TORNEIO_KEY = 'bolao.activeTorneioId'
 
 // Colunas públicas de participants — NUNCA inclui password_hash nem auth_user_id.
 // has_auth existe apenas após a migration 0004 — o select falha graciosamente se
@@ -32,6 +34,9 @@ interface StoreValue {
   predictions: Prediction[]
   leagues: League[]
   leagueMembers: LeagueMember[]
+  torneios: Torneio[]
+  activeTorneioId: string | null
+  setActiveTorneioId: (id: string) => void
   refresh: () => Promise<void>
   createParticipant: (name: string, password: string) => Promise<Participant>
   loginWithPassword: (name: string, password: string) => Promise<Participant>
@@ -40,7 +45,7 @@ interface StoreValue {
   saveKickoff: (matchId: string, kickoffIso: string) => Promise<void>
   saveTeams: (matchId: string, homeTeam: string, homeCode: string, awayTeam: string, awayCode: string) => Promise<void>
   deleteMatch: (matchId: string) => Promise<void>
-  createLeague: (name: string, creatorId: string, startsAt?: string | null) => Promise<League>
+  createLeague: (name: string, creatorId: string, torneioId: string, startsAt?: string | null) => Promise<League>
   updateLeagueStartsAt: (leagueId: string, startsAt: string | null) => Promise<void>
   deleteLeague: (leagueId: string) => Promise<void>
   inviteToLeague: (leagueId: string, participantId: string, invitedById: string) => Promise<void>
@@ -59,10 +64,14 @@ const StoreContext = createContext<StoreValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [matches, setMatches] = useState<Match[]>([])
+  const [matchesAll, setMatchesAll] = useState<Match[]>([])
   const [predictions, setPredictions] = useState<Prediction[]>([])
-  const [leagues, setLeagues] = useState<League[]>([])
+  const [leaguesAll, setLeaguesAll] = useState<League[]>([])
   const [leagueMembers, setLeagueMembers] = useState<LeagueMember[]>([])
+  const [torneios, setTorneios] = useState<Torneio[]>([])
+  const [activeTorneioId, setActiveTorneioIdState] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_TORNEIO_KEY),
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mounted = useRef(true)
@@ -80,11 +89,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pResult = await supabase.from('participants').select(PARTICIPANT_COLS_LEGACY).order('created_at') as any
       }
-      const [m, pr, lg, lm] = await Promise.all([
+      const [m, pr, lg, lm, tn] = await Promise.all([
         supabase.from('matches').select('*'),
         supabase.from('predictions').select('*'),
         supabase.from('leagues').select('*'),
         supabase.from('league_members').select('*'),
+        supabase.from('torneios').select('*').eq('is_active', true),
       ])
       const p = pResult
       if (p.error) throw p.error
@@ -92,12 +102,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (pr.error) throw pr.error
       if (lg.error) throw lg.error
       if (lm.error) throw lm.error
+      if (tn.error) throw tn.error
       if (!mounted.current) return
       setParticipants(p.data as Participant[])
-      setMatches(m.data as Match[])
+      setMatchesAll(m.data as Match[])
       setPredictions(pr.data as Prediction[])
-      setLeagues(lg.data as League[])
+      setLeaguesAll(lg.data as League[])
       setLeagueMembers(lm.data as LeagueMember[])
+      setTorneios(tn.data as Torneio[])
       setError(null)
     } catch (e: unknown) {
       if (mounted.current) setError(e instanceof Error ? e.message : 'Erro ao carregar dados.')
@@ -118,12 +130,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leagues' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'league_members' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'torneios' }, () => void refresh())
       .subscribe()
     return () => {
       mounted.current = false
       void supabase.removeChannel(channel)
     }
   }, [refresh])
+
+  // Torneio ativo: valida contra a lista carregada e cai no "destaque" se
+  // o salvo em localStorage não existir mais ou nunca ter sido escolhido.
+  useEffect(() => {
+    if (torneios.length === 0) return
+    setActiveTorneioIdState((current) => {
+      if (current && torneios.some((t) => t.id === current)) return current
+      return (torneios.find((t) => t.is_featured) ?? torneios[0]).id
+    })
+  }, [torneios])
+
+  useEffect(() => {
+    if (activeTorneioId) localStorage.setItem(ACTIVE_TORNEIO_KEY, activeTorneioId)
+  }, [activeTorneioId])
+
+  const setActiveTorneioId = useCallback((id: string) => setActiveTorneioIdState(id), [])
+
+  // Todo o resto do app consome `matches`/`leagues` já filtrados pelo torneio
+  // ativo — assim nenhuma tela precisa saber que multi-torneio existe.
+  const matches = useMemo(
+    () => (activeTorneioId ? matchesAll.filter((m) => m.torneio_id === activeTorneioId) : []),
+    [matchesAll, activeTorneioId],
+  )
+  const leagues = useMemo(
+    () => (activeTorneioId ? leaguesAll.filter((l) => l.torneio_id === activeTorneioId) : []),
+    [leaguesAll, activeTorneioId],
+  )
 
   const createParticipant = useCallback(async (name: string, password: string) => {
     const trimmed = name.trim()
@@ -306,10 +346,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
-  const createLeague = useCallback(async (name: string, creatorId: string, startsAt?: string | null) => {
+  const createLeague = useCallback(async (name: string, creatorId: string, torneioId: string, startsAt?: string | null) => {
     const { data, error: err } = await supabase
       .from('leagues')
-      .insert({ name: name.trim(), creator_id: creatorId, starts_at: startsAt ?? null })
+      .insert({ name: name.trim(), creator_id: creatorId, torneio_id: torneioId, starts_at: startsAt ?? null })
       .select('*')
       .single()
     if (err) throw err
@@ -432,6 +472,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       predictions,
       leagues,
       leagueMembers,
+      torneios,
+      activeTorneioId,
+      setActiveTorneioId,
       refresh,
       createParticipant,
       loginWithPassword,
@@ -453,7 +496,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       resetPasswordWithToken,
       updateParticipantEmail,
     }),
-    [loading, error, participants, matches, predictions, leagues, leagueMembers, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, saveTeams, deleteMatch, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken, adminCreateResetToken, resetPasswordWithToken, updateParticipantEmail],
+    [loading, error, participants, matches, predictions, leagues, leagueMembers, torneios, activeTorneioId, setActiveTorneioId, refresh, createParticipant, loginWithPassword, savePrediction, saveResult, saveKickoff, saveTeams, deleteMatch, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, createLeagueInviteLink, acceptInviteByToken, adminCreateResetToken, resetPasswordWithToken, updateParticipantEmail],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

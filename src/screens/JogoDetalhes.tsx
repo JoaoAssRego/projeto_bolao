@@ -29,6 +29,11 @@ export default function JogoDetalhes() {
 
   const matchPredictions = predictions.filter((p) => p.match_id === match.id)
 
+  // Confronto de ida/volta: acha a outra perna pelo tie_id pra mostrar o
+  // agregado. Puramente informativo — não afeta pontuação de ninguém.
+  const tieSibling = match.tie_id ? matches.find((m) => m.tie_id === match.tie_id && m.id !== match.id) ?? null : null
+  const tieAggregate = tieSibling ? computeTieAggregate(match, tieSibling) : null
+
   const myLeagues = leagues.filter((lg) =>
     leagueMembers.some(
       (m) => m.league_id === lg.id && m.participant_id === me.id && m.status === 'accepted',
@@ -65,7 +70,7 @@ export default function JogoDetalhes() {
       </div>
 
       {/* Match info card */}
-      <MatchInfo match={match} />
+      <MatchInfo match={match} tieAggregate={tieAggregate} />
 
       {/* Tabs + predictions */}
       <PredictionSection
@@ -84,10 +89,32 @@ export default function JogoDetalhes() {
   )
 }
 
-function MatchInfo({ match }: { match: Match }) {
+interface TieAggregate {
+  teamA: string
+  goalsA: number
+  teamB: string
+  goalsB: number
+}
+
+/** Soma os placares das duas pernas de um confronto de ida/volta, por time. Puramente informativo. */
+function computeTieAggregate(current: Match, sibling: Match): TieAggregate | null {
+  if (!hasResult(current) || !hasResult(sibling)) return null
+  const goals = new Map<string, number>()
+  for (const m of [current, sibling]) {
+    if (m.home_team && m.home_score != null) goals.set(m.home_team, (goals.get(m.home_team) ?? 0) + m.home_score)
+    if (m.away_team && m.away_score != null) goals.set(m.away_team, (goals.get(m.away_team) ?? 0) + m.away_score)
+  }
+  const entries = [...goals.entries()]
+  if (entries.length !== 2) return null
+  const [[teamA, goalsA], [teamB, goalsB]] = entries
+  return { teamA, goalsA, teamB, goalsB }
+}
+
+function MatchInfo({ match, tieAggregate }: { match: Match; tieAggregate: TieAggregate | null }) {
   const finished = hasResult(match)
   const teamsDefined = Boolean(match.home_team && match.away_team)
-  const groupLabel = match.label ?? STAGE_LABEL[match.stage]
+  const stageLabel = match.label ?? STAGE_LABEL[match.stage]
+  const groupLabel = match.leg ? `${stageLabel} · ${match.leg === 'ida' ? 'Ida' : 'Volta'}` : stageLabel
 
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
@@ -112,8 +139,23 @@ function MatchInfo({ match }: { match: Match }) {
       </div>
 
       {isKnockout(match.stage) && finished && match.advancer && (
-        <p className="text-center text-[11px] text-[var(--accent)] pb-3">
-          Avançou: {match.advancer === 'home' ? match.home_team : match.away_team}
+        <p className="text-center text-[11px] text-[var(--accent)] pb-1">
+          {match.leg ? 'Venceu esta partida' : 'Avançou'}: {match.advancer === 'home' ? match.home_team : match.away_team}
+        </p>
+      )}
+
+      {tieAggregate && (
+        <p className="text-center text-[11px] text-[var(--t2)] pb-3">
+          Agregado: {tieAggregate.teamA} {tieAggregate.goalsA} × {tieAggregate.goalsB} {tieAggregate.teamB}
+          {tieAggregate.goalsA !== tieAggregate.goalsB && (
+            <>
+              {' — '}
+              <span className="font-semibold text-[var(--accent)]">
+                {tieAggregate.goalsA > tieAggregate.goalsB ? tieAggregate.teamA : tieAggregate.teamB}
+              </span>{' '}
+              avançou
+            </>
+          )}
         </p>
       )}
     </div>

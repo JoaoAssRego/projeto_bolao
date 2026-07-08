@@ -34,7 +34,7 @@ function DeltaBadge({ delta }: { delta: number | undefined }) {
 }
 
 export default function Home() {
-  const { participants, matches, predictions, loading, leagues, leagueMembers } = useStore()
+  const { participants, matches, predictions, loading, leagues, leagueMembers, activeTorneioId } = useStore()
   const { me } = useAuth()
   const navigate = useNavigate()
 
@@ -80,15 +80,20 @@ export default function Home() {
   // Ordem de declaração garante que o 1 salva antes do 2 carregar.
   const [todaySnapshot, setTodaySnapshot] = useState<SnapshotEntry[] | null>(null)
 
+  // Contexto do snapshot: liga (já escopada a um torneio) ou, no ranking
+  // global, o torneio ativo — nunca undefined puro, senão o delta do
+  // ranking global de um torneio vazaria pro ranking global de outro.
+  const snapshotContext = currentLeague?.id ?? activeTorneioId ?? undefined
+
   useEffect(() => {
     if (loading || ranking.length === 0) return
-    initTodaySnapshot(ranking, currentLeague?.id)
-  }, [loading, ranking, currentLeague])
+    initTodaySnapshot(ranking, snapshotContext)
+  }, [loading, ranking, snapshotContext])
 
   useEffect(() => {
     if (loading) return
-    setTodaySnapshot(loadTodaySnapshot(currentLeague?.id))
-  }, [loading, currentLeague])
+    setTodaySnapshot(loadTodaySnapshot(snapshotContext))
+  }, [loading, snapshotContext])
 
   const delta = useMemo(
     () => (todaySnapshot ? computeRankingDelta(ranking, todaySnapshot) : new Map<string, number>()),
@@ -130,6 +135,22 @@ export default function Home() {
   const below = myIndex >= 0 && myIndex < ranking.length - 1 ? ranking[myIndex + 1] : undefined
   const toPass = above && myRow ? above.points - myRow.points : null
   const cushion = below && myRow ? myRow.points - below.points : null
+
+  async function handleShareApp() {
+    const url = window.location.origin
+    const text = `Tô jogando o Bolão da Copa 2026. Entra pra brigar pelo topo da classificação:\n${url}`
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: 'Bolão Copa 2026', text })
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Share failed:', err)
+      }
+    }
+  }
 
   if (!me) return null
 
@@ -296,6 +317,18 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <div className="flex flex-col items-center gap-2 pt-2 text-center">
+        <p className="text-xs text-[var(--t3)]">
+          Quanto mais gente jogando, mais motivo pra continuar melhorando o app.
+        </p>
+        <button
+          onClick={handleShareApp}
+          className="flex items-center gap-1.5 rounded-full bg-[var(--raised)] px-4 py-1.5 text-xs font-semibold text-[var(--t2)] transition-colors hover:text-[var(--t1)] active:bg-[var(--border)]"
+        >
+          Convidar amigos 🤝
+        </button>
+      </div>
 
       {showRules && (
         <RulesModal onClose={() => setShowRules(false)} />

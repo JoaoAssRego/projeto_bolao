@@ -35,7 +35,7 @@ export function scoreFor(pred: ScorePrediction | undefined, match: ScoreMatch): 
   const realDiff = match.home_score - match.away_score
   if (predDiff === realDiff) return 7
 
-  if (match.stage === 'group') {
+  if (match.stage === 'group' || match.stage === 'league_phase') {
     const predSign = Math.sign(predDiff)
     const realSign = Math.sign(realDiff)
     return predSign === realSign ? 5 : 0

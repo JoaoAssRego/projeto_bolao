@@ -5,6 +5,7 @@ import { useAuth } from '../data/auth'
 import { buildStandings, withRanks, computeRankingDelta, getPerfectRoundParticipants } from '../lib/scoring'
 import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
 import type { SnapshotEntry } from '../lib/rankingSnapshot'
+import Modal from '../components/Modal'
 
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
@@ -16,7 +17,7 @@ function DeltaBadge({ delta }: { delta: number | undefined }) {
 }
 
 export default function Ligas() {
-  const { participants, matches, predictions, leagues, leagueMembers, loading, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember } = useStore()
+  const { participants, matches, predictions, leagues, leagueMembers, loading, createLeague, updateLeagueStartsAt, deleteLeague, inviteToLeague, acceptInvite, declineInvite, removeMember, torneios, activeTorneioId } = useStore()
   const { me } = useAuth()
 
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(
@@ -83,18 +84,21 @@ export default function Ligas() {
     [filteredParticipants, matches, predictions, selectedLeague],
   )
 
-  // Snapshot de hoje como baseline do delta, por contexto (global ou liga)
+  // Snapshot de hoje como baseline do delta, por contexto (liga, ou torneio
+  // ativo no ranking Global — nunca undefined puro, senão o delta vazaria
+  // entre torneios diferentes)
   const [todaySnapshot, setTodaySnapshot] = useState<SnapshotEntry[] | null>(null)
+  const snapshotContext = currentLeagueId ?? activeTorneioId ?? undefined
 
   useEffect(() => {
     if (loading || ranking.length === 0) return
-    initTodaySnapshot(ranking, currentLeagueId ?? undefined)
-  }, [loading, ranking, currentLeagueId])
+    initTodaySnapshot(ranking, snapshotContext)
+  }, [loading, ranking, snapshotContext])
 
   useEffect(() => {
     if (loading) return
-    setTodaySnapshot(loadTodaySnapshot(currentLeagueId ?? undefined))
-  }, [loading, currentLeagueId])
+    setTodaySnapshot(loadTodaySnapshot(snapshotContext))
+  }, [loading, snapshotContext])
 
   const delta = useMemo(
     () => (todaySnapshot ? computeRankingDelta(ranking, todaySnapshot) : new Map<string, number>()),
@@ -219,10 +223,11 @@ export default function Ligas() {
       {/* Modais */}
       {showCreate && (
         <CreateLeagueModal
+          torneioNome={torneios.find((t) => t.id === activeTorneioId)?.nome ?? ''}
           onClose={() => setShowCreate(false)}
           onCreate={async (name, startsAt) => {
-            if (!me) return
-            const league = await createLeague(name, me.id, startsAt)
+            if (!me || !activeTorneioId) return
+            const league = await createLeague(name, me.id, activeTorneioId, startsAt)
             selectLeague(league.id)
             setShowCreate(false)
           }}
@@ -273,31 +278,13 @@ function Tab({ active, onClick, children, badge }: { active: boolean; onClick: (
   )
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div
-        className="relative w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-bold text-[var(--t1)]">{title}</h2>
-          <button onClick={onClose} className="text-lg text-[var(--t3)] active:text-[var(--t1)]">✕</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
 // ── Modal: Criar liga ──────────────────────────────────────────────────────────
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, startsAt: string | null) => Promise<void> }) {
+function CreateLeagueModal({ torneioNome, onClose, onCreate }: { torneioNome: string; onClose: () => void; onCreate: (name: string, startsAt: string | null) => Promise<void> }) {
   const [name, setName] = useState('')
   const [startsDate, setStartsDate] = useState(todayIso())
   const [loading, setLoading] = useState(false)
@@ -322,6 +309,11 @@ function CreateLeagueModal({ onClose, onCreate }: { onClose: () => void; onCreat
   return (
     <Modal title="Nova liga" onClose={onClose}>
       <div className="flex flex-col gap-3">
+        {torneioNome && (
+          <p className="text-xs text-[var(--t3)]">
+            Liga para <span className="font-semibold text-[var(--t2)]">{torneioNome}</span> — troque o torneio no seletor do topo antes de criar se quiser outro.
+          </p>
+        )}
         <input
           autoFocus
           type="text"

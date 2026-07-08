@@ -1,15 +1,18 @@
 # PRD — Desafio 1v1
 
-**Status:** Pronto para desenvolvimento  
+**Status:** Pronto para desenvolvimento (depende da Fase 1 multi-torneio)  
 **Prioridade:** Média (Copa 2026 em andamento, feature mais complexa)  
 **Esforço estimado:** 3 dias  
-**Referência no documento de engajamento:** Seção 4.1 — Loops Sociais Recíprocos e Espacialidade
+**Referência no documento de engajamento:** Seção 4.1 — Loops Sociais Recíprocos e Espacialidade  
+**Depende de:** [`prd-multi-torneio-champions-league.md`](prd-multi-torneio-champions-league.md) — a tabela `torneios` e a coluna `matches.torneio_id` precisam existir antes desta feature entrar em desenvolvimento.
 
 ---
 
 ## Objetivo
 
-Permitir que qualquer participante desafie outro para uma competição paralela de palpites. O desafiado deve aceitar explicitamente. O desafio tem escopo configurável (um jogo, uma rodada ou a Copa inteira) e resolve-se automaticamente ao final do período, com resultado compartilhável no WhatsApp.
+Permitir que qualquer participante desafie outro para uma competição paralela de palpites. O desafiado deve aceitar explicitamente. O desafio é sempre criado **dentro do contexto de um torneio específico** (o torneio ativo do desafiante no momento da criação) e tem escopo configurável (um jogo, uma rodada ou o torneio inteiro) e resolve-se automaticamente ao final do período, com resultado compartilhável no WhatsApp.
+
+> **Nota (multi-torneio):** um desafio não atravessa torneios — se os dois participantes quiserem duelar tanto na Copa do Mundo quanto na Champions League, são dois desafios independentes. O escopo "torneio inteiro" substitui o antigo "Copa inteira".
 
 ---
 
@@ -22,7 +25,7 @@ O documento de engajamento (seção 4.1) descreve o "Loop Social Recíproco": o 
 ## User Stories
 
 **US-01 — Criar desafio**  
-Como participante, quero desafiar um colega específico escolhendo o escopo (jogo, rodada ou Copa), para criar uma rivalidade direta com aposta simbólica.
+Como participante, quero desafiar um colega específico escolhendo o escopo (jogo, rodada ou torneio inteiro) dentro do torneio que estou vendo no momento, para criar uma rivalidade direta com aposta simbólica.
 
 **US-02 — Receber e aceitar desafio**  
 Como participante desafiado, quero ser notificado dentro do app e poder aceitar ou recusar com um toque, para decidir se quero entrar na disputa.
@@ -43,9 +46,9 @@ Como criador do desafio, quero adicionar uma descrição textual de aposta simb�
 ### Fluxo Completo
 
 ```
-Usuário A → abre modal "Criar Desafio"
+Usuário A → abre modal "Criar Desafio" (dentro do torneio ativo no seletor)
     → Escolhe oponente (lista de participantes)
-    → Escolhe escopo: Jogo / Rodada / Copa inteira
+    → Escolhe escopo: Jogo / Rodada / Torneio inteiro
     → (opcional) Escreve aposta simbólica
     → Confirma → Desafio criado com status "pending"
 
@@ -71,8 +74,8 @@ Usuário B → vê badge de notificação na aba de Desafios
 | Escopo | Descrição | Resolução automática |
 |--------|-----------|----------------------|
 | **Jogo** | Um único jogo específico | Quando `match.finished = true` para o jogo selecionado |
-| **Rodada** | Todos os jogos do mesmo dia | Quando todos os jogos do dia tiverem `finished = true` |
-| **Copa inteira** | Todos os jogos do torneio | Quando a final tiver `finished = true` |
+| **Rodada** | Todos os jogos do mesmo dia, dentro do torneio do desafio | Quando todos os jogos do dia tiverem `finished = true` |
+| **Torneio inteiro** | Todos os jogos do torneio do desafio (`torneio_id`) | Quando o último jogo do torneio (ex: a final) tiver `finished = true` |
 
 ---
 
@@ -130,10 +133,11 @@ Notificações são lidas via polling do store ao abrir o app (não requer WebSo
 ```sql
 create table challenges (
   id uuid primary key default gen_random_uuid(),
+  torneio_id uuid references torneios(id) not null, -- torneio ativo do desafiante no momento da criação
   challenger_id uuid references participants(id) not null,
   challenged_id uuid references participants(id) not null,
   scope_type text not null check (scope_type in ('match', 'round', 'tournament')),
-  scope_match_id uuid references matches(id),   -- preenchido se scope_type = 'match'
+  scope_match_id uuid references matches(id),   -- preenchido se scope_type = 'match'; deve pertencer a torneio_id
   scope_round_date date,                         -- preenchido se scope_type = 'round'
   wager_text text,                               -- aposta simbólica (opcional)
   status text not null default 'pending'
@@ -143,6 +147,8 @@ create table challenges (
   resolved_at timestamptz
 );
 ```
+
+`scope_type = 'tournament'` resolve sobre todos os jogos de `torneio_id` (não sobre todos os torneios). O cálculo de placar do duelo (`computeChallengeScore`) precisa filtrar jogos por `torneio_id` também nos escopos `match` e `round`, para não haver ambiguidade se dois torneios tiverem jogos na mesma data.
 
 ### RLS (Row Level Security)
 
@@ -172,8 +178,9 @@ create table challenges (
 ## Critérios de Aceite
 
 **Criação:**
+- [ ] Desafio é criado com `torneio_id` igual ao torneio ativo no seletor do desafiante
 - [ ] Modal de criação exibe lista de participantes (exceto o próprio usuário)
-- [ ] Usuário pode selecionar escopo: Jogo / Rodada / Copa
+- [ ] Usuário pode selecionar escopo: Jogo / Rodada / Torneio inteiro
 - [ ] Para escopo "Jogo": exibe lista de jogos futuros para seleção
 - [ ] Para escopo "Rodada": exibe datas disponíveis
 - [ ] Campo de aposta simbólica é opcional (máximo 60 caracteres)

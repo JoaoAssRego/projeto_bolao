@@ -13,6 +13,25 @@
 | `auth_user_id`  | `uuid`        | Nullable Unique |
 | `has_auth`      | `bool`        | Nullable        |
 
+## Table `torneios`
+
+> *Em desenvolvimento — Fase 1 do multi-torneio ([prd-multi-torneio-champions-league.md](../prd/prd-multi-torneio-champions-league.md)).* Um registro por campeonato de futebol (Copa do Mundo, Champions League, e futuramente Libertadores/Copa do Brasil). Não confundir com `leagues` (subgrupos de amigos dentro de um torneio).
+
+### Columns
+
+| Name                | Type          | Constraints    |
+| ------------------- | ------------- | -------------- |
+| `id`                | `uuid`        | Primary        |
+| `nome`               | `text`        |                |
+| `slug`               | `text`        | Unique         |
+| `competition_code`   | `text`        |                |
+| `data_source`        | `text`        |                |
+| `starts_at`          | `timestamptz` | Nullable       |
+| `ends_at`            | `timestamptz` | Nullable       |
+| `is_active`          | `bool`        |                |
+| `is_featured`        | `bool`        |                |
+| `created_at`         | `timestamptz` |                |
+
 ## Table `matches`
 
 ### Columns
@@ -36,6 +55,9 @@
 | `last_synced_at` | `timestamptz` | Nullable    |
 | `home_team_code` | `text`        | Nullable    |
 | `away_team_code` | `text`        | Nullable    |
+| `torneio_id`     | `uuid`        | *Em desenvolvimento* — FK `torneios.id`, obrigatória após backfill |
+| `tie_id`         | `uuid`        | *Em desenvolvimento* — Nullable; agrupa ida/volta do mesmo confronto |
+| `leg`            | `text`        | *Em desenvolvimento* — Nullable; `'ida'` \| `'volta'` |
 
 ## Table `predictions`
 
@@ -61,6 +83,7 @@
 | `creator_id` | `uuid`        |             |
 | `created_at` | `timestamptz` |             |
 | `starts_at`  | `timestamptz` | Nullable    |
+| `torneio_id` | `uuid`        | *Em desenvolvimento* — FK `torneios.id`, obrigatória após backfill |
 
 ## Table `league_members`
 
