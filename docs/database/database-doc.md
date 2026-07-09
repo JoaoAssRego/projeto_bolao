@@ -15,7 +15,7 @@
 
 ## Table `torneios`
 
-> *Em desenvolvimento — Fase 1 do multi-torneio ([prd-multi-torneio-champions-league.md](../prd/prd-multi-torneio-champions-league.md)).* Um registro por campeonato de futebol (Copa do Mundo, Champions League, e futuramente Libertadores/Copa do Brasil). Não confundir com `leagues` (subgrupos de amigos dentro de um torneio).
+> Um registro por campeonato de futebol (Copa do Mundo, Champions League, Copa Libertadores, Copa do Brasil). Não confundir com `leagues` (subgrupos de amigos dentro de um torneio). `data_source` decide qual Edge Function de sync processa o torneio: `'football-data.org'` → `sync-resultados`; `'bsd-football-api'` → `sync-resultados-bsd`. Ver [prd-multi-torneio-champions-league.md](../prd/prd-multi-torneio-champions-league.md) (Fase 1) e memória do projeto `project_multi_torneio.md` (Fase 2 — Libertadores/Copa do Brasil via BSD Football API).
 
 ### Columns
 
@@ -31,6 +31,8 @@
 | `is_active`          | `bool`        |                |
 | `is_featured`        | `bool`        |                |
 | `created_at`         | `timestamptz` |                |
+| `bsd_league_id`      | `int4`        | Nullable — só usada quando `data_source = 'bsd-football-api'` |
+| `bsd_season_id`      | `int4`        | Nullable — só usada quando `data_source = 'bsd-football-api'` |
 
 ## Table `matches`
 
@@ -55,9 +57,30 @@
 | `last_synced_at` | `timestamptz` | Nullable    |
 | `home_team_code` | `text`        | Nullable    |
 | `away_team_code` | `text`        | Nullable    |
-| `torneio_id`     | `uuid`        | *Em desenvolvimento* — FK `torneios.id`, obrigatória após backfill |
-| `tie_id`         | `uuid`        | *Em desenvolvimento* — Nullable; agrupa ida/volta do mesmo confronto |
-| `leg`            | `text`        | *Em desenvolvimento* — Nullable; `'ida'` \| `'volta'` |
+| `torneio_id`     | `uuid`        | FK `torneios.id`, not null |
+| `tie_id`         | `uuid`        | Nullable; agrupa ida/volta do mesmo confronto |
+| `leg`            | `text`        | Nullable; `'ida'` \| `'volta'` |
+| `home_team_id`   | `int4`        | Nullable; id de time da BSD Football API (`0018_matches_team_ids.sql`) — usado pra resolver o escudo do clube via `sports.bzzoiro.com/img/team/{id}/`. Só populado para Libertadores/Copa do Brasil; `null` em Copa do Mundo/Champions League (sync via football-data.org). |
+| `away_team_id`   | `int4`        | Nullable; mesma origem/uso de `home_team_id`. |
+
+### Constraints relevantes
+
+- `uniq_matches_torneio_external_id` — único em `(torneio_id, external_id) where external_id is not null`. Escopado por torneio desde `0016_torneios_libertadores_copa_brasil.sql`: antes era global (`uniq_matches_external_id`), o que colidia entre ids de eventos de fontes diferentes (football-data.org vs BSD Football API).
+- `uniq_matches_torneio_stage_ordering` — único em `(torneio_id, stage, ordering)`. Escopado por torneio desde `0017_fix_stage_ordering_uniqueness.sql`: antes era global (`uniq_matches_stage_ordering`, em `schema.sql`), o que colidia entre torneios que compartilham nome de fase (ex: `r16`, `qf`, `sf`, `final` usados tanto pela Champions League quanto por Libertadores/Copa do Brasil).
+
+## Table `sync_logs`
+
+> Heartbeat + histórico das Edge Functions de sync (`sync-resultados`, `sync-resultados-bsd`). Sem RLS de leitura pública — só service role/SQL Editor. Ver `0009_sync_observability_cron.sql`.
+
+### Columns
+
+| Name            | Type          | Constraints |
+| --------------- | ------------- | ----------- |
+| `id`            | `int8`        | Primary (identity) |
+| `function_name` | `text`        |             |
+| `status`        | `text`        | `'ok'` \| `'skipped'` \| `'error'` |
+| `summary`       | `jsonb`       | Nullable    |
+| `created_at`    | `timestamptz` |             |
 
 ## Table `predictions`
 

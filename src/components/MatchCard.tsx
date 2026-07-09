@@ -4,9 +4,9 @@ import type { Match, Participant, Prediction } from '../lib/types'
 import { isKnockout, STAGE_LABEL } from '../lib/types'
 import { hasResult, isLocked, scoreFor } from '../lib/scoring'
 import { formatDate, formatTime } from '../lib/format'
-import { getFlag } from '../lib/countryFlags'
 import DrumPicker from './DrumPicker'
 import ShareModal from './ShareModal'
+import TeamCrest from './TeamCrest'
 
 interface Props {
   match: Match
@@ -117,14 +117,14 @@ export default function MatchCard({ match, me, predictions, onSave, hasPredictio
 function FinishedRow({ match }: { match: Match }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <TeamLabel name={match.home_team} code={match.home_team_code} align="left" />
+      <TeamLabel name={match.home_team} code={match.home_team_code} teamId={match.home_team_id} align="left" />
       <div className="flex flex-col items-center gap-1 px-2">
         <div className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
           {match.home_score} <span className="text-[var(--t3)] font-light">×</span> {match.away_score}
         </div>
         <div className="text-[10px] uppercase tracking-widest text-[var(--t3)]">resultado</div>
       </div>
-      <TeamLabel name={match.away_team} code={match.away_team_code} align="right" />
+      <TeamLabel name={match.away_team} code={match.away_team_code} teamId={match.away_team_id} align="right" />
     </div>
   )
 }
@@ -133,7 +133,7 @@ function FinishedRow({ match }: { match: Match }) {
 function LockedRow({ match }: { match: Match }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <TeamLabel name={match.home_team} code={match.home_team_code} align="left" />
+      <TeamLabel name={match.home_team} code={match.home_team_code} teamId={match.home_team_id} align="left" />
       <div className="flex flex-col items-center gap-1.5 px-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
@@ -142,17 +142,26 @@ function LockedRow({ match }: { match: Match }) {
         </div>
         <span className="text-[10px] text-[var(--t3)]">aguardando placar</span>
       </div>
-      <TeamLabel name={match.away_team} code={match.away_team_code} align="right" />
+      <TeamLabel name={match.away_team} code={match.away_team_code} teamId={match.away_team_id} align="right" />
     </div>
   )
 }
 
-/* Flag stacked above name, used for non-edit states */
-function TeamLabel({ name, code, align }: { name: string | null; code: string | null; align: 'left' | 'right' }) {
-  const flag = getFlag(code, name)
+/* Escudo/bandeira stacked above name, used for non-edit states */
+function TeamLabel({
+  name,
+  code,
+  teamId,
+  align,
+}: {
+  name: string | null
+  code: string | null
+  teamId: number | null
+  align: 'left' | 'right'
+}) {
   return (
     <div className={`flex-1 min-w-0 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-      <span className="text-[26px] leading-none">{flag ?? '🏴'}</span>
+      <TeamCrest teamId={teamId} code={code} name={name} size={26} />
       <span className={`text-[13px] font-semibold leading-tight truncate max-w-full ${name ? 'text-[var(--t1)]' : 'italic text-[var(--t3)]'}`}>
         {name ?? 'A definir'}
       </span>
@@ -169,8 +178,6 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
   const [isEditing, setIsEditing] = useState(!initial)
 
   const canSave = !saving
-  const homeFlag = getFlag(match.home_team_code, match.home_team)
-  const awayFlag = getFlag(match.away_team_code, match.away_team)
 
   async function handleSave() {
     setSaving(true)
@@ -196,7 +203,7 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
       <div className="flex items-center gap-3">
         {/* Home team */}
         <div className="flex-1 min-w-0">
-          <span className="text-[24px] leading-none">{homeFlag ?? '🏴'}</span>
+          <TeamCrest teamId={match.home_team_id} code={match.home_team_code} name={match.home_team} size={24} />
           <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.home_team}</p>
         </div>
 
@@ -209,7 +216,7 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
         {/* Away team */}
         <div className="flex-1 min-w-0 text-right">
-          <span className="text-[24px] leading-none">{awayFlag ?? '🏴'}</span>
+          <TeamCrest teamId={match.away_team_id} code={match.away_team_code} name={match.away_team} size={24} />
           <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.away_team}</p>
         </div>
       </div>

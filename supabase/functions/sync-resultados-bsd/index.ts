@@ -209,9 +209,17 @@ async function linkTiesForTorneio(
   torneio: Torneio,
   homeAwayIdByMatchId: Map<string, { home: number; away: number }>,
 ): Promise<number> {
+  // Seleciona a linha inteira (não só id/tie_id/leg): o upsert em lote monta
+  // um INSERT ... ON CONFLICT DO UPDATE por baixo, e o Postgres valida as
+  // colunas NOT NULL da linha candidata de insert ANTES de decidir se vai
+  // atualizar — um upsert parcial (só {id, tie_id, leg}) quebra com "null
+  // value in column stage violates not-null constraint" mesmo a linha já
+  // existindo. Por isso toda escrita em lote deste arquivo manda a linha completa.
   const { data, error } = await supabase
     .from('matches')
-    .select('id, stage, home_team, away_team, kickoff, tie_id, leg')
+    .select(
+      'id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished, tie_id, leg, home_score, away_score, advancer',
+    )
     .eq('torneio_id', torneio.id)
     .in('stage', [...TWO_LEG_CAPABLE_STAGES])
   if (error) throw new SyncError('Falha ao ler matches para pareamento ida/volta.', 500, error.message)
@@ -227,7 +235,7 @@ async function linkTiesForTorneio(
     groups.set(key, arr)
   }
 
-  const changes: Array<{ id: string; tie_id: string; leg: 'ida' | 'volta' }> = []
+  const changes: Record<string, unknown>[] = []
   for (const group of groups.values()) {
     if (group.length !== 2) continue // só pareia quando as duas pernas já existem
     const tieId = group.find((g) => g.tie_id)?.tie_id ?? crypto.randomUUID()
@@ -236,7 +244,7 @@ async function linkTiesForTorneio(
     for (let i = 0; i < sorted.length; i++) {
       const m = sorted[i]
       if (m.tie_id === tieId && m.leg === legs[i]) continue
-      changes.push({ id: m.id, tie_id: tieId, leg: legs[i] })
+      changes.push({ ...m, torneio_id: torneio.id, tie_id: tieId, leg: legs[i] })
     }
   }
 
@@ -350,6 +358,8 @@ async function syncTorneio(
         label,
         home_team: ev.home_team,
         away_team: ev.away_team,
+        home_team_id: ev.home_team_id,
+        away_team_id: ev.away_team_id,
         kickoff: ev.event_date,
         external_id: ev.id,
         result_source: 'api',
@@ -381,6 +391,8 @@ async function syncTorneio(
       label: target.label,
       home_team: teamsAlreadySet ? target.home_team : ev.home_team,
       away_team: teamsAlreadySet ? target.away_team : ev.away_team,
+      home_team_id: swapped ? ev.away_team_id : ev.home_team_id,
+      away_team_id: swapped ? ev.home_team_id : ev.away_team_id,
       kickoff: ev.event_date,
       external_id: ev.id,
       result_source: target.result_source,

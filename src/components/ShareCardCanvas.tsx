@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import type { Match, Prediction } from '../lib/types'
 import { getFlag } from '../lib/countryFlags'
+import { useTeamCrest } from '../lib/teamCrest'
 
 interface Props {
   match: Match
@@ -15,6 +16,8 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
   ({ match, myPred, pts, myRank, phrase, cardType }, ref) => {
     const homeFlag = getFlag(match.home_team_code, match.home_team) ?? '🏴'
     const awayFlag = getFlag(match.away_team_code, match.away_team) ?? '🏴'
+    const homeCrest = useTeamCrest(match.home_team_id)
+    const awayCrest = useTeamCrest(match.away_team_id)
 
     const ptsColor =
       pts === 10
@@ -114,7 +117,11 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
               maxWidth: 160,
             }}
           >
-            <span style={{ fontSize: 52, lineHeight: 1 }}>{homeFlag}</span>
+            {homeCrest ? (
+              <img src={homeCrest} alt="" crossOrigin="anonymous" style={{ width: 52, height: 52, objectFit: 'contain' }} />
+            ) : (
+              <span style={{ fontSize: 52, lineHeight: 1 }}>{homeFlag}</span>
+            )}
             <span
               style={{
                 color: 'oklch(95% 0.008 155)',
@@ -196,7 +203,11 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
               maxWidth: 160,
             }}
           >
-            <span style={{ fontSize: 52, lineHeight: 1 }}>{awayFlag}</span>
+            {awayCrest ? (
+              <img src={awayCrest} alt="" crossOrigin="anonymous" style={{ width: 52, height: 52, objectFit: 'contain' }} />
+            ) : (
+              <span style={{ fontSize: 52, lineHeight: 1 }}>{awayFlag}</span>
+            )}
             <span
               style={{
                 color: 'oklch(95% 0.008 155)',

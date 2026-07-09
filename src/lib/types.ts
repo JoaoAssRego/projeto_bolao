@@ -77,6 +77,8 @@ export interface Match {
   away_team: string | null
   home_team_code: string | null // ISO 3166-1 alpha-2 ou subdivisão (GBENG/GBSCT/GBWLS)
   away_team_code: string | null
+  home_team_id: number | null // id de time da BSD Football API (Libertadores/Copa do Brasil) — null p/ Copa do Mundo/Champions
+  away_team_id: number | null
   kickoff: string // ISO timestamp
   home_score: number | null
   away_score: number | null
