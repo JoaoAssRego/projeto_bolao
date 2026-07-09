@@ -75,6 +75,11 @@ export default function Jogos() {
 
   const [selectedDay, setSelectedDay] = useState(defaultDay)
 
+  // Ao trocar de torneio (ou o dia padrão mudar), volta para o dia padrão do novo torneio.
+  useEffect(() => {
+    setSelectedDay(defaultDay)
+  }, [activeTorneioId, defaultDay])
+
   // Centraliza o chip selecionado na barra
   useEffect(() => {
     const chip = chipRefs.current.get(selectedDay)

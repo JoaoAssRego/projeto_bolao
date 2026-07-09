@@ -6,6 +6,7 @@ import { buildStandings, withRanks, isLocked, hasResult, computeRankingDelta, ge
 import { initTodaySnapshot, loadTodaySnapshot } from '../lib/rankingSnapshot'
 import type { SnapshotEntry } from '../lib/rankingSnapshot'
 import RulesModal from '../components/RulesModal'
+import UpdateAnnouncementCard from '../components/UpdateAnnouncementCard'
 
 const LAST_LEAGUE_KEY = 'bolao.lastLeagueId'
 
@@ -156,6 +157,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-4 pt-1">
+      <UpdateAnnouncementCard />
+
       {liveMatches.length > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-[oklch(63%_0.257_29_/_0.45)] bg-[oklch(63%_0.257_29_/_0.1)] px-4 py-3">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[oklch(63%_0.257_29)]" />
