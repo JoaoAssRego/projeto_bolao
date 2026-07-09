@@ -112,6 +112,9 @@ interface DbMatch {
   finished: boolean
   tie_id: string | null
   leg: 'ida' | 'volta' | null
+  home_score: number | null
+  away_score: number | null
+  advancer: 'home' | 'away' | null
 }
 
 const CORS = {
@@ -195,6 +198,11 @@ function tieKey(stage: string, homeId: number, awayId: number): string {
 // team_id em vez de nome normalizado. Idempotente. Fases de jogo único (ex:
 // cdb_f1..cdb_f4 da Copa do Brasil) nunca formam grupo de tamanho 2, então
 // simplesmente não são linkadas — comportamento correto sem caso especial.
+//
+// Uma única leitura + um único upsert em lote (em vez de um update por
+// partida): com até ~32 pernas de mata-mata por torneio, fazer isso um a um
+// facilmente passa do timeout de execução da Edge Function (foi o que
+// aconteceu na primeira versão — a chamada nunca respondia).
 async function linkTiesForTorneio(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -219,7 +227,7 @@ async function linkTiesForTorneio(
     groups.set(key, arr)
   }
 
-  let linked = 0
+  const changes: Array<{ id: string; tie_id: string; leg: 'ida' | 'volta' }> = []
   for (const group of groups.values()) {
     if (group.length !== 2) continue // só pareia quando as duas pernas já existem
     const tieId = group.find((g) => g.tie_id)?.tie_id ?? crypto.randomUUID()
@@ -228,12 +236,14 @@ async function linkTiesForTorneio(
     for (let i = 0; i < sorted.length; i++) {
       const m = sorted[i]
       if (m.tie_id === tieId && m.leg === legs[i]) continue
-      const { error: upErr } = await supabase.from('matches').update({ tie_id: tieId, leg: legs[i] }).eq('id', m.id)
-      if (upErr) throw new SyncError('Falha ao linkar ida/volta.', 500, upErr.message)
-      linked++
+      changes.push({ id: m.id, tie_id: tieId, leg: legs[i] })
     }
   }
-  return linked
+
+  if (changes.length === 0) return 0
+  const { error: upErr } = await supabase.from('matches').upsert(changes, { onConflict: 'id' })
+  if (upErr) throw new SyncError('Falha ao linkar ida/volta.', 500, upErr.message)
+  return changes.length
 }
 
 async function syncTorneio(
@@ -258,7 +268,9 @@ async function syncTorneio(
 
   const { data: dbMatches, error: dbErr } = await supabase
     .from('matches')
-    .select('id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished, tie_id, leg')
+    .select(
+      'id, stage, ordering, label, home_team, away_team, kickoff, external_id, result_source, finished, tie_id, leg, home_score, away_score, advancer',
+    )
     .eq('torneio_id', torneio.id)
   if (dbErr) throw new SyncError('Falha ao ler matches.', 500, dbErr.message)
   const db = (dbMatches ?? []) as DbMatch[]
@@ -275,6 +287,15 @@ async function syncTorneio(
   const homeAwayIdByMatchId = new Map<string, { home: number; away: number }>()
 
   const sorted = [...events].sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+
+  // Toda escrita (insert OU update) vira uma linha completa aqui, e no final
+  // uma ÚNICA chamada de upsert grava tudo. Ler ~142 eventos e escrever um a
+  // um (a versão original) facilmente passa do timeout de execução da Edge
+  // Function — foi exatamente por isso que a primeira invocação nunca
+  // respondeu. Como cada linha aqui carrega o estado completo (não um patch
+  // parcial), todas têm o mesmo formato de colunas, o que o upsert exige pra
+  // funcionar corretamente em lote.
+  const rows: Record<string, unknown>[] = []
 
   for (const ev of sorted) {
     const stage =
@@ -320,24 +341,28 @@ async function syncTorneio(
       const ordering = (nextOrdering.get(stage) ?? 0) + 1
       nextOrdering.set(stage, ordering)
       const label = stage === 'group' ? groupLabel(ev.group_name) : null
-      const { data: inserted, error: insErr } = await supabase
-        .from('matches')
-        .insert({
-          torneio_id: torneio.id,
-          stage,
-          ordering,
-          label,
-          home_team: ev.home_team,
-          away_team: ev.away_team,
-          kickoff: ev.event_date,
-          external_id: ev.id,
-          result_source: 'api',
-        })
-        .select('id')
-        .single()
-      if (insErr) throw new SyncError('Falha ao criar jogo.', 500, { detail: insErr.message, apiId: ev.id })
+      const id = crypto.randomUUID()
+      rows.push({
+        id,
+        torneio_id: torneio.id,
+        stage,
+        ordering,
+        label,
+        home_team: ev.home_team,
+        away_team: ev.away_team,
+        kickoff: ev.event_date,
+        external_id: ev.id,
+        result_source: 'api',
+        finished: false,
+        tie_id: null,
+        leg: null,
+        home_score: null,
+        away_score: null,
+        advancer: null,
+        last_synced_at: new Date().toISOString(),
+      })
       result.criados++
-      homeAwayIdByMatchId.set(inserted.id, { home: ev.home_team_id, away: ev.away_team_id })
+      homeAwayIdByMatchId.set(id, { home: ev.home_team_id, away: ev.away_team_id })
       continue
     }
 
@@ -345,14 +370,27 @@ async function syncTorneio(
       ? { home: ev.away_team_id, away: ev.home_team_id }
       : { home: ev.home_team_id, away: ev.away_team_id })
 
-    const patch: Record<string, unknown> = {
-      external_id: ev.id,
+    // Linha completa: parte do estado atual de `target` e só sobrescreve o
+    // que de fato muda — preserva tie_id/leg (o pareamento roda depois, numa
+    // segunda passada) e o placar/resultado quando não há nada novo a aplicar.
+    const row: Record<string, unknown> = {
+      id: target.id,
+      torneio_id: torneio.id,
+      stage: target.stage,
+      ordering: target.ordering,
+      label: target.label,
+      home_team: teamsAlreadySet ? target.home_team : ev.home_team,
+      away_team: teamsAlreadySet ? target.away_team : ev.away_team,
       kickoff: ev.event_date,
+      external_id: ev.id,
+      result_source: target.result_source,
+      finished: target.finished,
+      tie_id: target.tie_id,
+      leg: target.leg,
+      home_score: target.home_score,
+      away_score: target.away_score,
+      advancer: target.advancer,
       last_synced_at: new Date().toISOString(),
-    }
-    if (!teamsAlreadySet) {
-      patch.home_team = ev.home_team
-      patch.away_team = ev.away_team
     }
     if (target.external_id == null) result.vinculados++
 
@@ -368,17 +406,21 @@ async function syncTorneio(
         let advancer: 'home' | 'away' | null = home === away ? null : home > away ? 'home' : 'away'
         if (stage === 'group' || stage === 'league_phase') advancer = null
 
-        patch.home_score = home
-        patch.away_score = away
-        patch.advancer = advancer
-        patch.finished = true
-        patch.result_source = 'api'
+        row.home_score = home
+        row.away_score = away
+        row.advancer = advancer
+        row.finished = true
+        row.result_source = 'api'
         result.placaresAtualizados++
       }
     }
 
-    const { error: upErr } = await supabase.from('matches').update(patch).eq('id', target.id)
-    if (upErr) throw new SyncError('Falha ao atualizar jogo.', 500, { detail: upErr.message, matchId: target.id })
+    rows.push(row)
+  }
+
+  if (rows.length > 0) {
+    const { error: upErr } = await supabase.from('matches').upsert(rows, { onConflict: 'id' })
+    if (upErr) throw new SyncError('Falha ao gravar jogos.', 500, upErr.message)
   }
 
   result.idaVoltaLinkados = await linkTiesForTorneio(supabase, torneio, homeAwayIdByMatchId)
