@@ -24,21 +24,27 @@ export default function TeamCrest({ teamId, code, name, size, className }: Props
 
   if (url && !failed) {
     return (
-      <img
-        src={url}
-        alt={name ?? ''}
-        width={size}
-        height={size}
-        onError={() => setFailed(true)}
-        className={`object-contain flex-shrink-0 ${className ?? ''}`}
+      <div
+        className={`flex-shrink-0 inline-flex items-center justify-center ${className ?? ''}`}
         style={{ width: size, height: size }}
-      />
+      >
+        <img
+          src={url}
+          alt={name ?? ''}
+          onError={() => setFailed(true)}
+          className="object-contain"
+          style={{ maxWidth: '100%', maxHeight: '100%' }}
+        />
+      </div>
     )
   }
 
   const flag = getFlag(code, name)
   return (
-    <span className={`leading-none flex-shrink-0 ${className ?? ''}`} style={{ fontSize: size }}>
+    <span
+      className={`leading-none flex-shrink-0 inline-flex items-center justify-center ${className ?? ''}`}
+      style={{ fontSize: size, width: size, height: size }}
+    >
       {flag ?? '🏴'}
     </span>
   )

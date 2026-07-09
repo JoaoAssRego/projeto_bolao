@@ -161,7 +161,7 @@ function TeamLabel({
 }) {
   return (
     <div className={`flex-1 min-w-0 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-      <TeamCrest teamId={teamId} code={code} name={name} size={26} />
+      <TeamCrest teamId={teamId} code={code} name={name} size={34} />
       <span className={`text-[13px] font-semibold leading-tight truncate max-w-full ${name ? 'text-[var(--t1)]' : 'italic text-[var(--t3)]'}`}>
         {name ?? 'A definir'}
       </span>
@@ -203,7 +203,7 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
       <div className="flex items-center gap-3">
         {/* Home team */}
         <div className="flex-1 min-w-0">
-          <TeamCrest teamId={match.home_team_id} code={match.home_team_code} name={match.home_team} size={24} />
+          <TeamCrest teamId={match.home_team_id} code={match.home_team_code} name={match.home_team} size={32} />
           <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.home_team}</p>
         </div>
 
@@ -216,7 +216,7 @@ function Editor({ match, initial, onSave }: { match: Match; initial?: Prediction
 
         {/* Away team */}
         <div className="flex-1 min-w-0 text-right">
-          <TeamCrest teamId={match.away_team_id} code={match.away_team_code} name={match.away_team} size={24} />
+          <TeamCrest teamId={match.away_team_id} code={match.away_team_code} name={match.away_team} size={32} />
           <p className="text-[13px] font-semibold text-[var(--t1)] truncate mt-1">{match.away_team}</p>
         </div>
       </div>
