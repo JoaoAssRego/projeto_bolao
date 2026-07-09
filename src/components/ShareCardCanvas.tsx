@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import type { Match, Prediction } from '../lib/types'
 import { getFlag } from '../lib/countryFlags'
-import { useTeamCrest } from '../lib/teamCrest'
+import { useCanvasSafeTeamCrest } from '../lib/teamCrest'
 
 interface Props {
   match: Match
@@ -16,8 +16,8 @@ const ShareCardCanvas = forwardRef<HTMLDivElement, Props>(
   ({ match, myPred, pts, myRank, phrase, cardType }, ref) => {
     const homeFlag = getFlag(match.home_team_code, match.home_team) ?? '🏴'
     const awayFlag = getFlag(match.away_team_code, match.away_team) ?? '🏴'
-    const homeCrest = useTeamCrest(match.home_team_id)
-    const awayCrest = useTeamCrest(match.away_team_id)
+    const homeCrest = useCanvasSafeTeamCrest(match.home_team_id)
+    const awayCrest = useCanvasSafeTeamCrest(match.away_team_id)
 
     const ptsColor =
       pts === 10

@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { getFlag } from '../lib/countryFlags'
-import { useTeamCrest } from '../lib/teamCrest'
+import { crestUrl } from '../lib/teamCrest'
 
 interface Props {
   teamId: number | null | undefined
@@ -12,16 +13,23 @@ interface Props {
 // Escudo real do clube (Libertadores/Copa do Brasil, via BSD) quando
 // disponível; cai na bandeira de país (Copa do Mundo) ou no emoji genérico
 // 🏴 (demais times de clube) do jeito que já funcionava antes.
+//
+// Exibição simples em <img>, sem crossOrigin: a BSD não manda
+// Access-Control-Allow-Origin (confirmado ao vivo), mas isso só importa pra
+// quem precisa rasterizar a imagem em canvas (ver ShareCardCanvas.tsx) — pra
+// só desenhar na tela, um <img src> comum funciona sem CORS nenhum.
 export default function TeamCrest({ teamId, code, name, size, className }: Props) {
-  const crest = useTeamCrest(teamId)
+  const url = crestUrl(teamId)
+  const [failed, setFailed] = useState(false)
 
-  if (crest) {
+  if (url && !failed) {
     return (
       <img
-        src={crest}
+        src={url}
         alt={name ?? ''}
         width={size}
         height={size}
+        onError={() => setFailed(true)}
         className={`object-contain flex-shrink-0 ${className ?? ''}`}
         style={{ width: size, height: size }}
       />
