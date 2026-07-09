@@ -10,12 +10,14 @@
 // ser repetida).
 //
 // Deploy: supabase functions deploy send-broadcast-push --no-verify-jwt
-// Chamada manual (admin logado no app):
+// Chamada manual via curl, com o CRON_SECRET já usado pelas outras push
+// functions (header x-cron-secret), ou por um admin logado no app:
 //   POST /functions/v1/send-broadcast-push
 //   { "broadcast_id": "2026-07-torneios", "title": "...", "body": "...", "url": "/" }
 //
-// Autorização: apenas admin logado no app (JWT do usuário + current_is_admin()).
-// Sem header de cron secret — não há cron chamando esta function.
+// Autorização: header x-cron-secret == CRON_SECRET, ou admin logado no app
+// (JWT do usuário + current_is_admin()). Não roda via cron — é sempre disparo
+// manual, o secret aqui só reaproveita o mesmo mecanismo de autenticação.
 // ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -28,7 +30,13 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
-async function isAdmin(req: Request, supabaseUrl: string): Promise<boolean> {
+// Aceita tanto o secret de cron (pra disparo manual via curl, mesmo padrão
+// das outras push functions) quanto um admin logado no app.
+async function isAuthorized(req: Request, supabaseUrl: string): Promise<boolean> {
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  const headerSecret = req.headers.get('x-cron-secret')
+  if (cronSecret && headerSecret && headerSecret === cronSecret) return true
+
   const authHeader = req.headers.get('Authorization')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
   if (!authHeader || !anonKey) return false
@@ -51,7 +59,7 @@ Deno.serve(async (req) => {
   }
   if (!supabaseUrl || !serviceKey) return json({ error: 'Ambiente Supabase ausente.' }, 500)
 
-  if (!(await isAdmin(req, supabaseUrl))) return json({ error: 'Não autorizado.' }, 401)
+  if (!(await isAuthorized(req, supabaseUrl))) return json({ error: 'Não autorizado.' }, 401)
 
   let payload: { broadcast_id?: string; title?: string; body?: string; url?: string }
   try {
