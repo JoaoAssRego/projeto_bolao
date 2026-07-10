@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../data/auth'
 import { usePushNotifications } from '../lib/pushNotifications'
 
@@ -9,6 +10,7 @@ import { usePushNotifications } from '../lib/pushNotifications'
 // diferente do NotificationOptInCard, que é um convite pontual e dispensável.
 export default function ProfileMenu() {
   const { me, signOut } = useAuth()
+  const navigate = useNavigate()
   const { subscribed, supported, busy, error, subscribe } = usePushNotifications(me?.id ?? null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -64,6 +66,17 @@ export default function ProfileMenu() {
               <p className="truncate px-3 pb-1 pt-1.5 text-sm font-semibold text-[var(--t1)]">
                 {me?.name}
               </p>
+
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  navigate('/meus')
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[var(--t2)] transition-colors active:bg-[var(--raised)]"
+              >
+                <span aria-hidden>📋</span>
+                <span className="flex-1 text-left">Meus palpites</span>
+              </button>
 
               {supported && (
                 <button

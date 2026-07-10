@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./data/auth";
 import { useStore } from "./data/store";
 import { isLocked } from "./lib/scoring";
@@ -11,8 +11,12 @@ import Home from "./screens/Home";
 import Jogos from "./screens/Jogos";
 import Ligas from "./screens/Ligas";
 import MeusPalpites from "./screens/MeusPalpites";
+import MiniGames from "./screens/MiniGames";
+import Campanha from "./screens/minigames/Campanha";
 import Admin from "./screens/Admin";
 import JogoDetalhes from "./screens/JogoDetalhes";
+import { loadState, playedDailyOn } from "./lib/minigames/storage";
+import { brtToday } from "./lib/minigames/daily";
 import ProfileMenu from "./components/ProfileMenu";
 import TorneioSelector from "./components/TorneioSelector";
 
@@ -54,6 +58,8 @@ function AppAutenticado() {
           <Route path="/jogos" element={<Jogos />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/meus" element={<MeusPalpites />} />
+          <Route path="/games" element={<MiniGames />} />
+          <Route path="/games/campanha/:id" element={<Campanha />} />
           <Route path="/jogo/:id" element={<JogoDetalhes />} />
           <Route
             path="/admin"
@@ -297,6 +303,14 @@ function Header() {
 function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const { me } = useAuth();
   const { leagueMembers, matches, predictions } = useStore();
+  const location = useLocation();
+
+  // Badge da aba Games: 1 quando o desafio do dia ainda não foi jogado.
+  // Recalcula a cada navegação (o localStorage muda ao responder o desafio).
+  const dailyBadge = useMemo(() => {
+    if (!me) return 0;
+    return playedDailyOn(loadState(me.id), brtToday()) ? 0 : 1;
+  }, [me, location.pathname]);
 
   const pendingCount = useMemo(
     () =>
@@ -333,7 +347,7 @@ function BottomNav({ isAdmin }: { isAdmin: boolean }) {
     { to: "/", label: "Início", icon: "🏅", badge: 0 },
     { to: "/ligas", label: "Liga", icon: "🏆", badge: pendingCount },
     { to: "/jogos", label: "Jogos", icon: "⚽", badge: unpredictedCount },
-    { to: "/meus", label: "Meus", icon: "📋", badge: 0 },
+    { to: "/games", label: "Games", icon: "🎮", badge: dailyBadge },
   ];
   if (isAdmin)
     items.push({ to: "/admin", label: "Admin", icon: "🛠️", badge: 0 });
