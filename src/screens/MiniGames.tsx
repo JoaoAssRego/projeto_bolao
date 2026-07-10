@@ -10,7 +10,9 @@ import { brtToday, brtYesterday, dailyChallenge } from '../lib/minigames/daily'
 import { loadState, recordDaily } from '../lib/minigames/storage'
 import type { MgState } from '../lib/minigames/storage'
 import type { MgPathMatch } from '../lib/minigames/types'
+import { submitDailyScore } from '../lib/minigames/leaderboard'
 import { ConfrontoReveal, ConfrontoScore, MandoContext, MgTeamMark, StreakPill } from '../components/minigames/bits'
+import { DailyLeaderboardSheet } from '../components/minigames/LeaderboardSheet'
 
 // Aba "Games" — jogo histórico "Refaça a Glória". Ponto de partida: desafio do
 // dia (gancho de hábito) + escolha de uma campanha campeã pra refazer o trajeto.
@@ -55,6 +57,7 @@ function DailyChallengeCard({
   const challenge = useMemo(() => dailyChallenge(CAMPAIGNS, today), [today])
   const played = state.daily.history[today]
   const [guess, setGuess] = useState<MgGuess>([0, 0])
+  const [showRanking, setShowRanking] = useState(false)
 
   if (!challenge) return null
   const { campaign, match } = challenge
@@ -62,13 +65,17 @@ function DailyChallengeCard({
   function submit() {
     if (!challenge) return
     const pts = scoreGuess(guess, match.score)
-    const next = recordDaily(meId, today, brtYesterday(), {
+    const entry = {
       campaignId: campaign.id,
       matchIndex: challenge.matchIndex,
       guess,
       points: pts,
-    })
+    }
+    const next = recordDaily(meId, today, brtYesterday(), entry)
     onPlayed(next)
+    // Sobe pro ranking compartilhado (idempotente por dia no banco). Falha é
+    // silenciosa: o progresso local já foi gravado.
+    void submitDailyScore(today, entry).catch(() => {})
   }
 
   return (
@@ -83,7 +90,15 @@ function DailyChallengeCard({
       </div>
 
       {played ? (
-        <DailyDone campaign={campaign} match={match} guess={played.guess} pts={played.points} streak={state.daily.streak} />
+        <>
+          <DailyDone campaign={campaign} match={match} guess={played.guess} pts={played.points} streak={state.daily.streak} />
+          <button
+            onClick={() => setShowRanking(true)}
+            className="mt-3 w-full rounded-xl border border-[var(--border)] py-2.5 text-sm font-bold text-[var(--t1)] transition-colors active:bg-[var(--raised)]"
+          >
+            Ver classificação
+          </button>
+        </>
       ) : (
         <>
           <p className="mb-2 text-center text-sm text-[var(--t2)]">
@@ -110,6 +125,8 @@ function DailyChallengeCard({
           </button>
         </>
       )}
+
+      {showRanking && <DailyLeaderboardSheet meId={meId} onClose={() => setShowRanking(false)} />}
     </section>
   )
 }

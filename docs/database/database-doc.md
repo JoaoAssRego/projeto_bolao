@@ -150,6 +150,42 @@
 | `user_agent`     | `text`        | Nullable    |
 | `created_at`     | `timestamptz` |             |
 
+## Table `minigame_campaign_scores`
+
+> Mini Games ("Refaça a Glória"): MELHOR resultado de cada participante por campanha (ranking global, um por campanha). Escrita só via RPC `submit_minigame_campaign_score` (security definer, mantém o maior `best_total`); leitura pública (RLS SELECT `true`). Ver `0020_minigame_leaderboards.sql`. `campaign_id` é o id curado no front (`campaignsData.ts`), sem FK.
+
+### Columns
+
+| Name             | Type          | Constraints                          |
+| ---------------- | ------------- | ------------------------------------ |
+| `id`             | `uuid`        | Primary                              |
+| `participant_id` | `uuid`        | FK `participants.id` on delete cascade |
+| `campaign_id`    | `text`        |                                      |
+| `best_total`     | `int4`        |                                      |
+| `max_total`      | `int4`        |                                      |
+| `exacts`         | `int4`        | default 0                            |
+| `scorer_correct` | `bool`        | default false                        |
+| `plays`          | `int4`        | default 1                            |
+| `updated_at`     | `timestamptz` |                                      |
+|                  |               | Unique (`participant_id`, `campaign_id`) |
+
+## Table `minigame_daily_scores`
+
+> Mini Games: jogada do desafio do dia, uma por participante por dia (`unique (participant_id, play_date)` — a primeira jogada do dia é a que vale). Alimenta o ranking diário recortável em semana/mês/total via RPC `minigame_daily_leaderboard(p_since date)` (agrega `sum(points)`). Escrita via RPC `submit_minigame_daily_score`; leitura pública. `play_date` é `date` no fuso de Brasília, definido no front. Ver `0020_minigame_leaderboards.sql`.
+
+### Columns
+
+| Name             | Type          | Constraints                          |
+| ---------------- | ------------- | ------------------------------------ |
+| `id`             | `uuid`        | Primary                              |
+| `participant_id` | `uuid`        | FK `participants.id` on delete cascade |
+| `play_date`      | `date`        |                                      |
+| `campaign_id`    | `text`        |                                      |
+| `match_index`    | `int4`        |                                      |
+| `points`         | `int4`        |                                      |
+| `created_at`     | `timestamptz` |                                      |
+|                  |               | Unique (`participant_id`, `play_date`) |
+
 ## Table `push_reminders_sent`
 
 ### Columns
