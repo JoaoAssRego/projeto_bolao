@@ -7,7 +7,9 @@ import type { MgCampaign, MgGuess, MgPathMatch } from '../../lib/minigames/types
 import { scoreCampaign, scoreGuess, ARTILHEIRO_POINTS } from '../../lib/minigames/scoring'
 import type { CampaignScore } from '../../lib/minigames/scoring'
 import { saveCampaignResult } from '../../lib/minigames/storage'
+import { submitCampaignScore } from '../../lib/minigames/leaderboard'
 import { ConfrontoReveal, ConfrontoScore, MandoContext, MgPointsBadge, MgTeamMark } from '../../components/minigames/bits'
+import { CampaignLeaderboardSheet } from '../../components/minigames/LeaderboardSheet'
 
 // Rota /games/campanha/:id — refaz a campanha jogo a jogo (um por tela). Cada jogo
 // é fechado na hora: ao confirmar o palpite, revela acerto/erro e trava. Fluxo é
@@ -65,6 +67,9 @@ export default function Campanha() {
     const sc = scoreCampaign(campaign!, guesses, scorerGuess)
     saveCampaignResult(me!.id, campaign!.id, sc)
     setResult(sc)
+    // Sobe pro ranking compartilhado (o banco mantém só o melhor). Falha é
+    // silenciosa: o progresso local já foi gravado.
+    void submitCampaignScore(campaign!, sc).catch(() => {})
   }
 
   if (result) {
@@ -72,6 +77,7 @@ export default function Campanha() {
       <Reveal
         campaign={campaign}
         score={result}
+        meId={me.id}
         onRetry={() => {
           setStep(0)
           setLocked(false)
@@ -370,14 +376,17 @@ function pipColor(pts: number): string {
 function Reveal({
   campaign,
   score,
+  meId,
   onRetry,
 }: {
   campaign: MgCampaign
   score: CampaignScore
+  meId: string
   onRetry: () => void
 }) {
   const navigate = useNavigate()
   const [shared, setShared] = useState(false)
+  const [showRanking, setShowRanking] = useState(false)
   const h = useMemo(() => headline(score.total / score.max), [score])
 
   async function share() {
@@ -428,6 +437,12 @@ function Reveal({
         >
           {shared ? 'Copiado ✓' : 'Compartilhar'}
         </button>
+        <button
+          onClick={() => setShowRanking(true)}
+          className="rounded-2xl border border-[var(--border)] py-3 font-semibold text-[var(--t1)] transition-colors active:bg-[var(--surface)]"
+        >
+          Ver classificação
+        </button>
         <div className="flex gap-2">
           <button
             onClick={onRetry}
@@ -443,6 +458,15 @@ function Reveal({
           </button>
         </div>
       </div>
+
+      {showRanking && (
+        <CampaignLeaderboardSheet
+          campaignId={campaign.id}
+          campaignLabel={`${campaign.team} · ${COMPETITION_LABEL[campaign.competition]} ${campaign.year}`}
+          meId={meId}
+          onClose={() => setShowRanking(false)}
+        />
+      )}
     </div>
   )
 }
