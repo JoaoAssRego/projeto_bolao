@@ -90,15 +90,64 @@ export function StreakPill({ days }: { days: number }) {
   )
 }
 
+// ─── Orientação por mando ────────────────────────────────────────────────────────
+// O placar interno é SEMPRE [nossos gols, gols do adversário] (scoreIndex 0 e 1).
+// A EXIBIÇÃO põe o mandante à esquerda: se jogamos fora ('them'), o adversário vai
+// pra esquerda e nós pra direita. Em sede neutra, nós ficamos à esquerda sem rótulo.
+interface MatchSide {
+  name: string
+  code: string
+  kind: 'selecao' | 'clube' | 'opponent'
+  scoreIndex: 0 | 1
+  mando: 'Mandante' | 'Visitante' | null
+}
+
+function orientSides(
+  home: 'us' | 'them' | 'neutral',
+  team: { name: string; code: string; kind: 'selecao' | 'clube' },
+  opp: { name: string; code: string },
+): [MatchSide, MatchSide] {
+  const us: MatchSide = { name: team.name, code: team.code, kind: team.kind, scoreIndex: 0, mando: null }
+  const them: MatchSide = { name: opp.name, code: opp.code, kind: 'opponent', scoreIndex: 1, mando: null }
+  if (home === 'us') {
+    us.mando = 'Mandante'
+    them.mando = 'Visitante'
+    return [us, them]
+  }
+  if (home === 'them') {
+    them.mando = 'Mandante'
+    us.mando = 'Visitante'
+    return [them, us]
+  }
+  return [us, them] // neutral
+}
+
+// ─── Contexto do jogo: sede neutra + local ─────────────────────────────────────────
+export function MandoContext({ home, venue }: { home: 'us' | 'them' | 'neutral'; venue: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+      {home === 'neutral' && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--raised)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--t2)]">
+          <span aria-hidden>🏟️</span> Sede neutra
+        </span>
+      )}
+      <span className="text-xs text-[var(--t3)]">
+        <span aria-hidden>📍</span> {venue}
+      </span>
+    </div>
+  )
+}
+
 // ─── Entrada de placar (dois DrumPickers) ────────────────────────────────────────
-// Nosso time à esquerda, adversário à direita. É o mesmo gesto do palpite do
-// bolão, pra o mini game parecer nativo.
+// Mandante à esquerda; é o mesmo gesto do palpite do bolão, pra o mini game
+// parecer nativo. O `home` decide a ordem — o `value` (placar) nunca muda.
 export function ConfrontoScore({
   teamName,
   teamKind,
   teamCode,
   opponent,
   opponentCode,
+  home,
   value,
   onChange,
   disabled,
@@ -108,54 +157,101 @@ export function ConfrontoScore({
   teamCode: string
   opponent: string
   opponentCode: string
+  home: 'us' | 'them' | 'neutral'
   value: MgGuess
   onChange: (v: MgGuess) => void
   disabled?: boolean
 }) {
+  const [left, right] = orientSides(home, { name: teamName, code: teamCode, kind: teamKind }, { name: opponent, code: opponentCode })
+  const setSide = (side: MatchSide, goals: number) => {
+    const next: MgGuess = [value[0], value[1]]
+    next[side.scoreIndex] = goals
+    onChange(next)
+  }
   return (
     <div className="flex items-stretch justify-between gap-2">
-      <TeamColumn name={teamName} code={teamCode} kind={teamKind} align="left" />
+      <TeamColumn side={left} align="left" />
       <div className="flex flex-shrink-0 items-center gap-1 pt-1">
         <DrumPicker
-          value={value[0]}
-          onChange={(v) => onChange([v, value[1]])}
+          value={value[left.scoreIndex]}
+          onChange={(v) => setSide(left, v)}
           disabled={disabled}
-          ariaLabel={`Gols do ${teamName}`}
+          ariaLabel={`Gols do ${left.name}`}
         />
         <span className="text-lg font-light text-[var(--t3)]">×</span>
         <DrumPicker
-          value={value[1]}
-          onChange={(v) => onChange([value[0], v])}
+          value={value[right.scoreIndex]}
+          onChange={(v) => setSide(right, v)}
           disabled={disabled}
-          ariaLabel={`Gols do ${opponent}`}
+          ariaLabel={`Gols do ${right.name}`}
         />
       </div>
-      <TeamColumn name={opponent} code={opponentCode} kind="opponent" align="right" />
+      <TeamColumn side={right} align="right" />
     </div>
   )
 }
 
-function TeamColumn({
-  name,
-  code,
-  kind,
-  align,
+// ─── Revelação de um jogo (placar real + seu palpite + pontos), orientada ──────────
+export function ConfrontoReveal({
+  teamName,
+  teamKind,
+  teamCode,
+  opponent,
+  opponentCode,
+  home,
+  actual,
+  penalties,
+  guess,
+  pts,
 }: {
-  name: string
-  code: string
-  kind: 'selecao' | 'clube' | 'opponent'
-  align: 'left' | 'right'
+  teamName: string
+  teamKind: 'selecao' | 'clube'
+  teamCode: string
+  opponent: string
+  opponentCode: string
+  home: 'us' | 'them' | 'neutral'
+  actual: [number, number]
+  penalties: [number, number] | null
+  guess: MgGuess
+  pts: number
 }) {
+  const [left, right] = orientSides(home, { name: teamName, code: teamCode, kind: teamKind }, { name: opponent, code: opponentCode })
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex w-full items-stretch justify-between gap-2">
+        <TeamColumn side={left} align="left" />
+        <div className="flex flex-shrink-0 flex-col items-center justify-center gap-0.5 pt-1">
+          <span className="text-3xl font-extrabold text-[var(--t1)] tabular-nums">
+            {actual[left.scoreIndex]}
+            <span className="mx-0.5 font-light text-[var(--t3)]">×</span>
+            {actual[right.scoreIndex]}
+            {penalties && <span className="ml-1 align-top text-[11px] text-[var(--t3)]">(p)</span>}
+          </span>
+          <span className="text-[11px] text-[var(--t3)] tabular-nums">
+            seu palpite: {guess[left.scoreIndex]}×{guess[right.scoreIndex]}
+          </span>
+        </div>
+        <TeamColumn side={right} align="right" />
+      </div>
+      <MgPointsBadge pts={pts} />
+    </div>
+  )
+}
+
+function TeamColumn({ side, align }: { side: MatchSide; align: 'left' | 'right' }) {
   return (
     <div
-      className={`flex min-w-0 flex-1 flex-col items-center gap-1.5 pt-2 ${
+      className={`flex min-w-0 flex-1 flex-col items-center gap-1 pt-2 ${
         align === 'right' ? 'text-right' : 'text-left'
       }`}
     >
-      <MgTeamMark name={name} code={code} kind={kind} size={40} />
+      <MgTeamMark name={side.name} code={side.code} kind={side.kind} size={40} />
       <span className="line-clamp-2 text-center text-[13px] font-semibold leading-tight text-[var(--t1)]">
-        {name}
+        {side.name}
       </span>
+      {side.mando && (
+        <span className="text-[10px] uppercase tracking-wider text-[var(--t3)]">{side.mando}</span>
+      )}
     </div>
   )
 }

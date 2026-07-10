@@ -16,10 +16,19 @@ export interface MgPathMatch {
   opponent: string
   /** ISO alpha-2 minúsculo (ou chave de bandeira) do adversário, p/ TeamCrest. */
   opponentCountryCode: string
+  /**
+   * Mando de campo deste jogo. 'us' = nosso time em casa; 'them' = adversário em
+   * casa (nós fora); 'neutral' = sede neutra (Copa do Mundo, finais únicas). Define
+   * a ORDEM de exibição (mandante à esquerda) — o `score` não muda com isso.
+   */
+  home: 'us' | 'them' | 'neutral'
+  /** Local do jogo já formatado p/ exibição: "Estádio · Cidade" ou só a cidade. */
+  venue: string
   /** SEMPRE [gols do nosso time, gols do adversário]. */
   score: [number, number]
   /** [pênaltis nosso time, adversário] quando o confronto foi nos pênaltis; senão null. */
   penalties: [number, number] | null
+  /** Narrativa/curiosidade histórica (sem o local, que agora vive em `venue`). */
   note: string | null
 }
 

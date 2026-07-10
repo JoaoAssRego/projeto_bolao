@@ -9,7 +9,8 @@ import { scoreGuess } from '../lib/minigames/scoring'
 import { brtToday, brtYesterday, dailyChallenge } from '../lib/minigames/daily'
 import { loadState, recordDaily } from '../lib/minigames/storage'
 import type { MgState } from '../lib/minigames/storage'
-import { ConfrontoScore, MgPointsBadge, MgTeamMark, StreakPill } from '../components/minigames/bits'
+import type { MgPathMatch } from '../lib/minigames/types'
+import { ConfrontoReveal, ConfrontoScore, MandoContext, MgTeamMark, StreakPill } from '../components/minigames/bits'
 
 // Aba "Games" — jogo histórico "Refaça a Glória". Ponto de partida: desafio do
 // dia (gancho de hábito) + escolha de uma campanha campeã pra refazer o trajeto.
@@ -85,15 +86,19 @@ function DailyChallengeCard({
         <DailyDone campaign={campaign} match={match} guess={played.guess} pts={played.points} streak={state.daily.streak} />
       ) : (
         <>
-          <p className="mb-4 text-center text-sm text-[var(--t2)]">
+          <p className="mb-2 text-center text-sm text-[var(--t2)]">
             {campaign.team} · {match.leg ? `${match.stageLabel} · ${match.leg === 'ida' ? 'Ida' : 'Volta'}` : match.stageLabel}. Qual foi o placar?
           </p>
+          <div className="mb-4">
+            <MandoContext home={match.home} venue={match.venue} />
+          </div>
           <ConfrontoScore
             teamName={campaign.team}
             teamKind={campaign.teamKind}
             teamCode={campaign.teamCountryCode}
             opponent={match.opponent}
             opponentCode={match.opponentCountryCode}
+            home={match.home}
             value={guess}
             onChange={setGuess}
           />
@@ -117,32 +122,27 @@ function DailyDone({
   streak,
 }: {
   campaign: MgCampaign
-  match: { opponent: string; score: [number, number]; penalties: [number, number] | null }
+  match: MgPathMatch
   guess: MgGuess
   pts: number
   streak: number
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-1 text-center">
-      <p className="text-sm text-[var(--t2)]">
-        {campaign.team} <span className="text-[var(--t3)]">×</span> {match.opponent}
-      </p>
-      <div className="flex items-center gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[var(--t3)]">Real</p>
-          <p className="text-2xl font-extrabold text-[var(--t1)] tabular-nums">
-            {match.score[0]}<span className="font-light text-[var(--t3)]">×</span>{match.score[1]}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-[var(--t3)]">Você</p>
-          <p className="text-2xl font-extrabold text-[var(--t2)] tabular-nums">
-            {guess[0]}<span className="font-light text-[var(--t3)]">×</span>{guess[1]}
-          </p>
-        </div>
-        <MgPointsBadge pts={pts} />
-      </div>
-      <p className="text-xs text-[var(--t3)]">
+    <div className="flex flex-col gap-3">
+      <MandoContext home={match.home} venue={match.venue} />
+      <ConfrontoReveal
+        teamName={campaign.team}
+        teamKind={campaign.teamKind}
+        teamCode={campaign.teamCountryCode}
+        opponent={match.opponent}
+        opponentCode={match.opponentCountryCode}
+        home={match.home}
+        actual={match.score}
+        penalties={match.penalties}
+        guess={guess}
+        pts={pts}
+      />
+      <p className="text-center text-xs text-[var(--t3)]">
         Volte amanhã{streak > 0 && ` · ofensiva de ${streak} ${streak === 1 ? 'dia' : 'dias'} 🔥`}
       </p>
     </div>
