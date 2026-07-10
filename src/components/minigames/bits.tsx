@@ -1,5 +1,7 @@
 import { getFlag } from '../../lib/countryFlags'
 import DrumPicker from '../DrumPicker'
+import TeamCrest from '../TeamCrest'
+import { crestIdFor } from '../../lib/minigames/crestIds'
 import type { MgGuess } from '../../lib/minigames/types'
 
 // ─── Marca do time ─────────────────────────────────────────────────────────────
@@ -29,6 +31,12 @@ export function MgTeamMark({
   kind: 'selecao' | 'clube' | 'opponent'
   size: number
 }) {
+  // Escudo real da BSD quando existe (clubes); TeamCrest cai na bandeira do país
+  // sozinho se a imagem falhar. Sem escudo + clube → monograma.
+  const teamId = crestIdFor(name)
+  if (teamId != null) {
+    return <TeamCrest teamId={teamId} code={code} name={name} size={size} />
+  }
   if (kind === 'clube') {
     return (
       <span
