@@ -3,6 +3,21 @@ import { useStore } from "../data/store";
 import { useAuth } from "../data/auth";
 import { supabase } from "../lib/supabase";
 
+const PASSWORD_HINT =
+  "Use letra maiúscula, minúscula e um caractere especial (ex.: !@#$%).";
+
+function weakPasswordMessage(e: unknown): string | null {
+  if (!e) return null;
+  const code = typeof e === "object" ? (e as { code?: string }).code : undefined;
+  const msg = e instanceof Error ? e.message : "";
+  // code === "weak_password" vem de chamadas diretas ao supabase.auth.signUp.
+  // A regex cobre o caso do fluxo de reset (edge function repassa error.message cru).
+  if (code === "weak_password" || /password should/i.test(msg)) {
+    return `Senha muito fraca. ${PASSWORD_HINT}`;
+  }
+  return null;
+}
+
 export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}) {
   const { createParticipant, loginWithPassword, resetPasswordWithToken } = useStore();
   const { signIn } = useAuth();
@@ -37,10 +52,13 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
       signIn(created);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
+      const weak = weakPasswordMessage(e);
       setErr(
-        msg.includes("duplicate")
-          ? "Esse nome (ou um muito parecido) já está em uso. Tente um nome diferente."
-          : "Não consegui cadastrar. Tente de novo.",
+        weak
+          ? weak
+          : msg.includes("duplicate")
+            ? "Esse nome (ou um muito parecido) já está em uso. Tente um nome diferente."
+            : "Não consegui cadastrar. Tente de novo.",
       );
     } finally {
       setBusy(false);
@@ -106,7 +124,9 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
       setNewPassword("");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("invalid-token"))
+      const weak = weakPasswordMessage(e);
+      if (weak) setErr(weak);
+      else if (msg.includes("invalid-token"))
         setErr("Código inválido. Verifique com o administrador.");
       else if (msg.includes("expired-token"))
         setErr("Código expirado. Peça ao administrador um novo código.");
@@ -173,9 +193,10 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="Crie uma senha (mín. 4 caracteres)"
+            placeholder="Crie uma senha"
             className={inputCls}
           />
+          <p className="text-xs text-[var(--t3)]">{PASSWORD_HINT}</p>
           {err && <p className="text-sm text-red-400">{err}</p>}
           <button
             onClick={handleCreate}
@@ -325,9 +346,10 @@ export default function Entrada({ inviteBanner }: { inviteBanner?: string } = {}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleConfirmReset()}
-            placeholder="Nova senha (mín. 4 caracteres)"
+            placeholder="Nova senha"
             className={inputCls}
           />
+          <p className="text-xs text-[var(--t3)]">{PASSWORD_HINT}</p>
           {err && <p className="text-sm text-red-400">{err}</p>}
           <button
             onClick={handleConfirmReset}
