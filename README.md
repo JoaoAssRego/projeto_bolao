@@ -1,6 +1,6 @@
 # MatchPool ⚽
 
-A mobile-first PWA for running a friends' football score-prediction pool (currently built around the 2026 World Cup, for ~10 friends). No traditional login. Match results are entered manually by the admin — or filled in automatically via a free API (see [Automatic result sync](#automatic-result-sync-optional)). Rules and product decisions live in [ESPECIFICACAO.md](ESPECIFICACAO.md).
+A mobile-first PWA for running a friends' football score-prediction pool (currently built around the 2026 World Cup, for ~10 friends). Match results are entered manually by the admin — or filled in automatically via a free API (see [Automatic result sync](#automatic-result-sync-optional)). Rules and product decisions live in [ESPECIFICACAO.md](ESPECIFICACAO.md).
 
 **Stack:** React + Vite + TypeScript + Tailwind · Supabase (Postgres) · static deploy (Vercel/Netlify).
 
